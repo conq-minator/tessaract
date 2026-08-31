@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=68.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tesseract-core-engine"
+version = "0.1.0"
+description = "Tesseract Core Engine - Central Event Aggregation, Context, and Behavioral Analysis"
+readme = "contents.md"
+requires-python = ">=3.11"
+authors = [
+    { name = "Member 4", email = "member4@tesseract.local" }
+]
+dependencies = [
+    "aiohttp>=3.9.0",
+    "websockets>=12.0",
+    "python-dotenv>=1.0.0",
+    "uuid6>=2024.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-aiohttp>=1.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=24.0.0",
+    "ruff>=0.5.0",
+    "mypy>=1.10.0",
+]
+
+[project.scripts]
+core-engine = "core_engine.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.black]
+line-length = 100
+target-version = ['py311', 'py312']
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+ignore = ["BLE001"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = false
+warn_return_any = true
+warn_unused_configs = true
