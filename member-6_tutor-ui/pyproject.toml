@@ -1,0 +1,51 @@
+[project]
+name = "tutor_ui"
+version = "0.1.0"
+description = "Tesseract Member 6 - Tutor & UI Component"
+authors = [
+    {name = "Tesseract Team"}
+]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "aiohttp>=3.9.0",
+    "aiohttp-jinja2>=1.6.0",
+    "httpx>=0.27.0",
+    "websockets>=12.0",
+    "jinja2>=3.1.0",
+    "python-dotenv>=1.0.0",
+    "pystray>=0.19.0",
+    "Pillow>=10.0.0",
+    "uuid6>=2024.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-aiohttp>=1.0.0",
+    "black>=24.0.0",
+    "ruff>=0.5.0",
+    "mypy>=1.10.0",
+]
+
+[project.scripts]
+tutor-ui = "tutor_ui.__main__:main"
+
+[tool.black]
+line-length = 100
+target-version = ['py311']
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.mypy]
+strict = true
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
