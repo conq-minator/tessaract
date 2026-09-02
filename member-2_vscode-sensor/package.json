@@ -1,0 +1,117 @@
+{
+  "name": "tesseract-vscode-sensor",
+  "displayName": "Tesseract VS Code Sensor",
+  "description": "Privacy-first developer activity sensor for Tesseract Behavioral AI Copilot",
+  "version": "0.1.0",
+  "publisher": "tesseract",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "tesseract.toggleSensor",
+        "title": "Tesseract: Toggle Sensor",
+        "category": "Tesseract"
+      },
+      {
+        "command": "tesseract.showHealth",
+        "title": "Tesseract: Show Sensor Health & Metrics",
+        "category": "Tesseract"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "Tesseract VS Code Sensor",
+      "properties": {
+        "tesseract.coreWsUrl": {
+          "type": "string",
+          "default": "ws://localhost:9700/events",
+          "description": "WebSocket endpoint of the Tesseract Core Engine event stream."
+        },
+        "tesseract.sharedSecret": {
+          "type": "string",
+          "default": "",
+          "description": "Shared authentication secret for Core Engine WebSocket handshake."
+        },
+        "tesseract.bufferSize": {
+          "type": "number",
+          "default": 100,
+          "description": "Maximum number of events to buffer locally when offline."
+        },
+        "tesseract.reconnectIntervalMs": {
+          "type": "number",
+          "default": 5000,
+          "description": "Base reconnection retry interval in milliseconds."
+        },
+        "tesseract.terminalCapture": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable terminal command and error output capture."
+        },
+        "tesseract.editDebounceMs": {
+          "type": "number",
+          "default": 2000,
+          "description": "Debounce duration in milliseconds for high-frequency editor events."
+        },
+        "tesseract.pathRedaction": {
+          "type": "string",
+          "enum": [
+            "relative",
+            "full",
+            "anonymized"
+          ],
+          "default": "relative",
+          "description": "Strategy for emitting file paths: relative to workspace, full filesystem, or anonymized."
+        },
+        "tesseract.logLevel": {
+          "type": "string",
+          "enum": [
+            "DEBUG",
+            "INFO",
+            "WARN",
+            "ERROR"
+          ],
+          "default": "DEBUG",
+          "description": "Logging verbosity in the Tesseract Sensor Output Channel."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src/ --ext .ts",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "test": "node ./out/test/runTest.js",
+    "package": "vsce package"
+  },
+  "dependencies": {
+    "uuid": "^10.0.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.7",
+    "@types/node": "^20.x",
+    "@types/uuid": "^10.0.0",
+    "@types/vscode": "^1.90.0",
+    "@types/ws": "^8.5.10",
+    "@typescript-eslint/eslint-plugin": "^7.14.1",
+    "@typescript-eslint/parser": "^7.14.1",
+    "@vscode/test-electron": "^2.4.0",
+    "@vscode/vsce": "^2.31.1",
+    "eslint": "^8.57.0",
+    "mocha": "^10.4.0",
+    "prettier": "^3.3.2",
+    "typescript": "^5.5.2"
+  }
+}
