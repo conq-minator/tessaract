@@ -5,10 +5,17 @@ from typing import Callable, Optional
 import webbrowser
 import threading
 
+
 class TrayApp:
-    def __init__(self, port: int = 9702, on_quit: Optional[Callable] = None):
+    def __init__(
+        self,
+        port: int = 9702,
+        on_quit: Optional[Callable] = None,
+        desktop_window: Optional[object] = None,
+    ):
         self.port = port
         self.on_quit = on_quit
+        self.desktop_window = desktop_window
         
         # Load Icons
         self.icons_dir = os.path.join(os.path.dirname(__file__), "icons")
@@ -27,7 +34,11 @@ class TrayApp:
         self.icon = pystray.Icon("Tesseract", self.icon_active, "Tesseract - Active", self.menu)
         
     def open_dashboard(self, icon, item):
-        webbrowser.open(f"http://localhost:{self.port}/overview")
+        """Open the dashboard — native window if available, else browser."""
+        if self.desktop_window is not None:
+            self.desktop_window.show()
+        else:
+            webbrowser.open(f"http://localhost:{self.port}/overview")
         
     def toggle_pause(self, icon, item):
         self.is_paused = not self.is_paused
@@ -40,6 +51,8 @@ class TrayApp:
         
     def quit_app(self, icon, item):
         self.icon.stop()
+        if self.desktop_window is not None:
+            self.desktop_window.destroy()
         if self.on_quit:
             self.on_quit()
             
@@ -47,9 +60,13 @@ class TrayApp:
         """Run the pystray blocking loop."""
         self.icon.run()
 
-def start_tray_in_background(port: int, on_quit: Callable):
+def start_tray_in_background(
+    port: int,
+    on_quit: Callable,
+    desktop_window: Optional[object] = None,
+):
     """Spawns the tray icon in a separate daemon thread to avoid blocking asyncio."""
-    app = TrayApp(port=port, on_quit=on_quit)
+    app = TrayApp(port=port, on_quit=on_quit, desktop_window=desktop_window)
     thread = threading.Thread(target=app.run, daemon=True)
     thread.start()
     return app

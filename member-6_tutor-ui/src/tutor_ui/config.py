@@ -15,6 +15,9 @@ class TesseractUIConfig:
     default_autonomy_level: int
     theme: str
     log_level: str
+    desktop_mode: bool
+    window_width: int
+    window_height: int
 
 def load_config() -> TesseractUIConfig:
     """Load configuration from .env file and environment variables."""
@@ -42,4 +45,7 @@ def load_config() -> TesseractUIConfig:
         default_autonomy_level=int(os.getenv("TESSERACT_DEFAULT_AUTONOMY_LEVEL", "2")),
         theme=os.getenv("TESSERACT_THEME", "dark"),
         log_level=os.getenv("TESSERACT_LOG_LEVEL", "DEBUG"),
+        desktop_mode=os.getenv("TESSERACT_DESKTOP_MODE", "true").lower() in ("true", "1", "yes"),
+        window_width=int(os.getenv("TESSERACT_WINDOW_WIDTH", "1280")),
+        window_height=int(os.getenv("TESSERACT_WINDOW_HEIGHT", "850")),
     )

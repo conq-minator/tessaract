@@ -15,7 +15,10 @@ def mock_config():
         notification_cooldown_s=300,
         default_autonomy_level=2,
         theme="dark",
-        log_level="DEBUG"
+        log_level="DEBUG",
+        desktop_mode=False,
+        window_width=1280,
+        window_height=850,
     )
 
 @pytest.fixture
