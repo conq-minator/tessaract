@@ -1,0 +1,82 @@
+<!-- Modal Overlay -->
+<div class="modal-overlay" id="app-modal" role="dialog" aria-modal="true">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title" id="modal-title">Action Required</h3>
+            <button class="modal-close" aria-label="Close modal">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+        </div>
+        <div class="modal-body" id="modal-body">
+            <!-- Dynamic Content -->
+        </div>
+        <div class="modal-footer" id="modal-footer">
+            <button class="btn btn-secondary" id="modal-btn-cancel">Cancel</button>
+            <button class="btn btn-primary" id="modal-btn-confirm">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<script>
+window.Modal = {
+    overlay: null,
+    resolveCallback: null,
+    
+    init() {
+        this.overlay = document.getElementById('app-modal');
+        if (!this.overlay) return;
+        
+        const closeBtn = this.overlay.querySelector('.modal-close');
+        const cancelBtn = document.getElementById('modal-btn-cancel');
+        const confirmBtn = document.getElementById('modal-btn-confirm');
+        
+        const dismiss = () => {
+            this.hide();
+            if (this.resolveCallback) this.resolveCallback(false);
+        };
+        
+        closeBtn.addEventListener('click', dismiss);
+        cancelBtn.addEventListener('click', dismiss);
+        
+        confirmBtn.addEventListener('click', () => {
+            this.hide();
+            if (this.resolveCallback) this.resolveCallback(true);
+        });
+    },
+    
+    /**
+     * Show a confirmation dialog
+     * @returns Promise<boolean> true if confirmed, false if cancelled
+     */
+    async confirm({ title, message, confirmText = 'Confirm', cancelText = 'Cancel', type = 'primary' }) {
+        if (!this.overlay) this.init();
+        
+        document.getElementById('modal-title').innerText = title;
+        document.getElementById('modal-body').innerHTML = message;
+        
+        const confirmBtn = document.getElementById('modal-btn-confirm');
+        const cancelBtn = document.getElementById('modal-btn-cancel');
+        
+        confirmBtn.innerText = confirmText;
+        cancelBtn.innerText = cancelText;
+        
+        // Reset classes
+        confirmBtn.className = `btn btn-${type}`;
+        
+        this.overlay.classList.add('active');
+        
+        return new Promise(resolve => {
+            this.resolveCallback = resolve;
+        });
+    },
+    
+    hide() {
+        if (this.overlay) this.overlay.classList.remove('active');
+    }
+};
+
+// Auto init if late bound
+document.addEventListener('DOMContentLoaded', () => {
+    if (!window.Modal.overlay) window.Modal.init();
+});
+</script>

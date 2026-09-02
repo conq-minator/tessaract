@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="history-grid">
+    <!-- Episodes List -->
+    <div class="glass-card full-span animate-fade-in" style="animation-delay: 0.1s">
+        <div class="card-header">
+            <h3 class="card-title">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="accent-icon"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                Session History
+            </h3>
+            <div class="filter-controls">
+                <select class="btn btn-secondary btn-sm" id="history-filter">
+                    <option value="all">All Episodes</option>
+                    <option value="mastered">Mastered</option>
+                    <option value="struggling">Struggling</option>
+                </select>
+            </div>
+        </div>
+        
+        <table class="history-table">
+            <thead>
+                <tr>
+                    <th>Topic</th>
+                    <th>Duration</th>
+                    <th>Friction</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="history-table-body">
+                <tr><td colspan="4" class="text-center text-muted">Loading history...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+.history-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 24px;
+}
+.full-span {
+    grid-column: 1 / -1;
+}
+
+.history-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 16px;
+}
+.history-table th {
+    text-align: left;
+    padding: 12px 16px;
+    border-bottom: 2px solid var(--border-primary);
+    color: var(--text-tertiary);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.history-table td {
+    padding: 16px;
+    border-bottom: 1px solid var(--border-primary);
+    color: var(--text-secondary);
+}
+.history-table tr:hover td {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+.history-table tr:last-child td {
+    border-bottom: none;
+}
+.topic-cell {
+    font-weight: 500;
+    color: var(--text-primary) !important;
+}
+.text-center { text-align: center; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/pages/history.js"></script>
+{% endblock %}

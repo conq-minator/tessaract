@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title | default('Tesseract Dashboard') }}</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="stylesheet" href="/static/css/components.css">
+    {% block extra_css %}{% endblock %}
+    
+    <!-- External Libraries -->
+    <script src="https://d3js.org/d3.v7.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+</head>
+<body>
+    <div id="global-loader" aria-live="polite" aria-busy="true">
+        <div class="spinner"></div>
+    </div>
+    
+    <div class="app-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            {% include 'components/sidebar.html' %}
+        </aside>
+
+        <!-- Main Content -->
+        <main class="app-container">
+            <header class="page-header">
+                <h1>{{ title }}</h1>
+                <div class="header-actions">
+                    {% block header_actions %}{% endblock %}
+                </div>
+            </header>
+            
+            <div class="page-body">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals & Toasts -->
+    {% include 'components/modal.html' ignore missing %}
+    {% include 'components/notification.html' ignore missing %}
+
+    <!-- Scripts -->
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/app.js"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
