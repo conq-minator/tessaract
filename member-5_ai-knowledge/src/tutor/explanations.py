@@ -82,19 +82,21 @@ async def answer_user_question(
         f"Code Snippet:\n```\n{code or 'No snippet provided'}\n```\n\n"
         f"User's Question: \"{question}\"\n\n"
         f"Instructions:\n"
-        f"1. Directly answer the user's question clearly and concisely.\n"
-        f"2. Reference their exact code lines and error to explain why it happens.\n"
-        f"3. Offer a pedagogical tip or hint on how to fix it cleanly.\n"
-        f"Keep the answer under 3 short paragraphs."
+        f"1. Directly answer the user's question clearly and concisely in 2 to 3 short paragraphs.\n"
+        f"2. Explain the concept and what caused the issue in their code.\n"
+        f"3. Do NOT provide full code blocks unless the user explicitly requested code. If code is necessary, show only the 1 or 2 lines that change.\n"
+        f"4. Focus on helping the user understand the concept so they can solve it themselves."
     )
 
     import asyncio
     try:
         result = await asyncio.wait_for(
-            registry.complete(prompt=prompt, task_type="reason", max_tokens=220),
+            registry.complete(prompt=prompt, task_type="reason", max_tokens=450),
             timeout=30.0
         )
         content = result.content
+        if content.count("```") % 2 != 0:
+            content += "\n```"
         model_used = result.model_name
         latency_ms = result.latency_ms
     except Exception as exc:
@@ -167,79 +169,78 @@ async def explain_runtime_error(
 ) -> Dict[str, Any]:
     """Provide a line-by-line pedagogical breakdown of a runtime crash."""
     prompt = (
-        f"You are an expert programming tutor. Explain this runtime crash clearly.\n"
+        f"You are a concise, sharp programming tutor.\n"
         f"Topic: {topic}\n"
         f"File: {file_path or 'unknown'}\n"
         f"Error: {error}\n"
         f"Code Context:\n```\n{code or 'No snippet provided'}\n```\n\n"
-        f"Explain in plain English:\n"
-        f"1. What this error means.\n"
-        f"2. Exactly which line and variables caused the crash in the code above.\n"
-        f"3. How to fix it properly."
+        f"Instructions:\n"
+        f"- Be extremely concise (maximum 2 to 4 sentences).\n"
+        f"- State directly what went wrong and which variable/line caused it.\n"
+        f"- Explain the conceptual fix in plain words.\n"
+        f"- DO NOT write code blocks or full rewritten functions unless strictly necessary or explicitly requested.\n"
+        f"- Help the user understand the reason so they can solve it themselves."
     )
 
     import asyncio
     try:
         result = await asyncio.wait_for(
-            registry.complete(prompt=prompt, task_type="reason", max_tokens=220),
+            registry.complete(prompt=prompt, task_type="reason", max_tokens=250),
             timeout=30.0
         )
         content = result.content
+        if content.count("```") % 2 != 0:
+            content += "\n```"
         model_used = result.model_name
         latency_ms = result.latency_ms
     except Exception:
         err_low = error.lower()
-        if "assertionerror" in err_low or "assert" in err_low or "task" in err_low or "append" in err_low:
+        if "zerodivisionerror" in err_low or "division by zero" in err_low:
             content = (
-                "### Why this `AssertionError` occurred (Mutable Default Argument Bug):\n\n"
-                "1. **What it means**: An assertion test failed because `len(user2_tasks)` was 2 instead of 1.\n"
-                "2. **Why it crashed**: In Python, default argument values like `task_list=[]` are evaluated **only once when the function is defined**, not on each call! All calls sharing the default argument append to the **exact same list instance in memory**, causing unexpected data leakage across calls.\n"
-                "3. **How to fix**:\n"
-                "```python\n"
-                "def append_task(task_name, task_list=None):\n"
-                "    if task_list is None:\n"
-                "        task_list = []\n"
-                "    task_list.append(task_name)\n"
-                "    return task_list\n"
-                "```"
+                "A `ZeroDivisionError` occurred because the denominator is 0. "
+                "In this code, no elements matched your filter condition, making the list empty (`len = 0`). "
+                "Check if the filtered list is empty before dividing, or return 0 if no matching items exist."
+            )
+        elif "assertionerror" in err_low or "assert" in err_low or "task" in err_low or "append" in err_low:
+            content = (
+                "In Python, default arguments like `task_list=[]` are evaluated only once when the function is defined, "
+                "so every subsequent call reuses the exact same list in memory. "
+                "To fix this, set the default to `None` and initialize a fresh `[]` inside the function body."
             )
         elif "typeerror" in err_low and ("concatenate" in err_low or "str" in err_low):
             content = (
-                "### Why this `TypeError` occurred:\n\n"
-                "1. **What it means**: Python cannot automatically combine a string and an integer using `+`.\n"
-                "2. **Why it crashed**: The accumulator was initialized as an empty string (`total = \"\"`), but the loop passed integer numbers (`1, 2, 3...`). Python doesn't know whether you wanted to convert the int to text or do math!\n"
-                "3. **How to fix**:\n"
-                "- If you want to sum numbers: change `total = \"\"` to `total = 0`.\n"
-                "- If you want to build a string: use `total += str(num)`."
+                "Python cannot combine a string and an integer with `+`. "
+                "Your accumulator was initialized as an empty string `\"\"` instead of a number. "
+                "Initialize it to `0` for numeric addition, or convert values with `str()` for text concatenation."
             )
         elif "indexerror" in err_low:
             content = (
-                "### Why this `IndexError` occurred:\n\n"
-                "1. **What it means**: Python attempted to fetch an item at an index outside the valid bounds of the list.\n"
-                "2. **Why it crashed**: Python lists are 0-indexed (indices `0` to `N-1`). Accessing index `N` or beyond throws `IndexError`.\n"
-                "3. **How to fix**: Ensure your range runs `range(len(items))` rather than `range(1, len(items) + 1)`."
+                "Lists in Python use 0-based indexing from `0` to `len - 1`. "
+                "The loop or indexing operation tried to access an index that exceeds the list bounds. "
+                "Adjust the range to `range(len(items))` so it stops before the boundary."
             )
         elif "keyerror" in err_low:
             content = (
-                "### Why this `KeyError` occurred:\n\n"
-                "1. **What it means**: The dictionary does not contain the specified key.\n"
-                "2. **How to fix**: Use `dict.get(key, default)` or verify with `if key in dict:` before indexing."
+                f"The dictionary does not contain the specified key. "
+                f"Use `dict.get(key, default)` or check with `if key in dict:` before accessing it."
             )
         elif "recursionerror" in err_low or "recursion" in err_low:
             content = (
-                "### Why this `RecursionError` occurred:\n\n"
-                "1. **What it means**: The maximum recursion depth was exceeded.\n"
-                "2. **Why it crashed**: The recursive function called itself infinitely without reaching a base case.\n"
-                "3. **How to fix**: Add a base case (e.g. `if n <= 0: return 0`) to terminate recursion."
+                "The maximum recursion depth was exceeded because the function calls itself without reaching a stopping condition. "
+                "Add a base case to return before triggering another recursive call."
             )
         elif "referenceerror" in err_low or "initialization" in err_low:
             content = (
-                "### Why this `ReferenceError` occurred:\n\n"
-                "1. **What it means**: A variable was accessed before its declaration (Temporal Dead Zone).\n"
-                "2. **How to fix**: Declare and initialize the variable before reading from it."
+                "A variable was referenced before it was initialized in the Temporal Dead Zone. "
+                "Ensure the variable is declared and assigned before any line attempts to read it."
+            )
+        elif "json" in err_low or "syntaxerror" in err_low or "token" in err_low:
+            content = (
+                "JSON parsing failed due to malformed syntax (such as trailing commas, unquoted keys, or single quotes). "
+                "Validate that the input conforms strictly to valid JSON before calling `JSON.parse()`."
             )
         else:
-            content = f"### Error Breakdown ({topic}):\n\nError: `{error}`\nCheck variable types and function arguments in your active file."
+            content = f"Runtime error `{error}` occurred. Check variable initialization, types, and logic boundaries in this function."
         model_used = "smart-rules"
         latency_ms = 0.0
 
