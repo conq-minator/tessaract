@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import time
 
 from aiohttp import web
@@ -155,10 +156,10 @@ class CoreEngineApp:
         friction_score = self.stuck_detector.update_with_event(event, topic=self._current_topic)
         self.event_store.record_friction_score(self._current_topic, friction_score)
 
-        # Check for Friction Alert (Medium or High) with 60s cooldown per topic
+        # Check for Friction Alert (Medium or High) with 15s cooldown per topic
         now_ts = time.time()
         last_alert = self._last_alert_time.get(self._current_topic, 0.0)
-        cooldown_s = 60.0
+        cooldown_s = 15.0
 
         if (friction_score.score >= self.config.friction_threshold_medium or friction_score.level in ("medium", "high")) and (now_ts - last_alert >= cooldown_s):
             self._last_alert_time[self._current_topic] = now_ts
@@ -208,6 +209,10 @@ class CoreEngineApp:
                     "topic": self._current_topic,
                     "hint": hint_text,
                     "signals": friction_score.signals,
+                    "error_message": err_msg,
+                    "error_line": err_line,
+                    "file_path": err_file,
+                    "code_snippet": code_snippet,
                     "episode_id": (
                         self.episode_grouper.active_episode.episode_id
                         if self.episode_grouper.active_episode

@@ -63,8 +63,45 @@ async def handle_roadmap(request: web.Request) -> web.Response:
     return web.json_response(res)
 
 
+async def handle_ask(request: web.Request) -> web.Response:
+    """POST /api/v1/tutor/ask"""
+    from src.tutor.explanations import answer_user_question
+    data = await request.json()
+    question = data.get("question", "")
+    topic = data.get("topic", "general")
+    error = data.get("error", "")
+    code = data.get("code", "")
+    file_path = data.get("file_path", "")
+
+    if not question:
+        return web.json_response({"error": "missing_parameter", "message": "'question' is required"}, status=400)
+
+    res = await answer_user_question(
+        question=question, topic=topic, error=error, code=code, file_path=file_path
+    )
+    return web.json_response(res)
+
+
+async def handle_explain_error(request: web.Request) -> web.Response:
+    """POST /api/v1/tutor/explain-error"""
+    from src.tutor.explanations import explain_runtime_error
+    data = await request.json()
+    topic = data.get("topic", "general")
+    error = data.get("error", "")
+    code = data.get("code", "")
+    file_path = data.get("file_path", "")
+
+    res = await explain_runtime_error(
+        topic=topic, error=error, code=code, file_path=file_path
+    )
+    return web.json_response(res)
+
+
 def setup_tutor_routes(app: web.Application):
     app.router.add_post("/api/v1/tutor/hint", handle_hint)
     app.router.add_post("/api/v1/tutor/explain", handle_explain)
+    app.router.add_post("/api/v1/tutor/explain-error", handle_explain_error)
+    app.router.add_post("/api/v1/tutor/ask", handle_ask)
     app.router.add_post("/api/v1/tutor/practice", handle_practice)
     app.router.add_post("/api/v1/tutor/roadmap", handle_roadmap)
+
