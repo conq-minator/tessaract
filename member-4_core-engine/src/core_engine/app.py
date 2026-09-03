@@ -71,6 +71,8 @@ class CoreEngineApp:
 
         # Current context tracking
         self._current_topic: str = "general"
+        self._current_subtopic: str = ""
+        self._current_concepts: list[str] = []
         self._current_intent: str = "working"
         self._active_tools: set[str] = set()
         self._last_alert_time: dict[str, float] = {}
@@ -86,8 +88,14 @@ class CoreEngineApp:
         active_session = self.session_builder.current_session
         active_episode = self.episode_grouper.active_episode
 
+        display_topic = (
+            f"{self._current_topic.capitalize()} ({self._current_subtopic})"
+            if self._current_subtopic
+            else self._current_topic
+        )
+
         return ContextState(
-            topic=self._current_topic,
+            topic=display_topic,
             intent=self._current_intent,
             active_tools=list(self._active_tools),
             friction_level=friction.level,
@@ -119,37 +127,45 @@ class CoreEngineApp:
         intent, confidence, rationale = self.intent_classifier.classify_event(event)
         self._current_intent = intent
 
-        # 4. Extract Topic from current event payload
-        event_topic = None
-        if event.payload.get("topic"):
-            event_topic = str(event.payload["topic"]).lower()
-        elif event.payload.get("language"):
-            lang = str(event.payload["language"]).lower()
-            if lang in ("python", "javascript", "typescript", "c", "cpp", "java", "rust"):
-                event_topic = lang
-        elif "command" in event.payload:
-            cmd = str(event.payload["command"]).lower()
-            if "python" in cmd or ".py" in cmd:
-                event_topic = "python"
-            elif "node" in cmd or ".js" in cmd or ".ts" in cmd:
-                event_topic = "javascript"
-            elif any(c_kw in cmd for c_kw in ["gcc", "clang", "g++", ".c ", ".cpp"]):
-                event_topic = "pointers" if "pointer" in cmd else "c-programming"
+        # 4. Extract Topic and fine-grained concepts from code and payload
+        import re
+        from .concept_extractor import extract_code_concepts
 
-        if not event_topic and "file_path" in event.payload:
-            fp = str(event.payload["file_path"]).lower()
-            if fp.endswith(".py"):
-                event_topic = "python"
-            elif fp.endswith((".c", ".h", ".cpp")):
-                event_topic = "pointers" if "pointer" in fp else "c-programming"
-            elif fp.endswith((".js", ".ts")):
-                event_topic = "javascript"
+        event_file = event.payload.get("file_path") or ""
+        cmd_str = event.payload.get("command") or ""
+        snippet = event.payload.get("code_snippet") or ""
 
-        if event_topic:
-            self._current_topic = event_topic
-        elif not self._current_topic or self._current_topic == "general":
-            if session.topics:
-                self._current_topic = session.topics[-1]
+        # Extract file path from command line if not present
+        if not event_file and cmd_str:
+            matches = re.findall(r'([^\r\n]+\.(?:py|c|h|cpp|js|ts|java))', cmd_str)
+            if matches:
+                for cand in matches:
+                    cand = cand.strip().strip('"\'')
+                    if os.path.exists(cand) or any(cand.endswith(ext) for ext in ('.py', '.js', '.c', '.ts')):
+                        event_file = cand
+                        break
+
+        extracted = extract_code_concepts(file_path=event_file, code=snippet)
+        domain = extracted["domain"]
+        primary_topic = extracted["primary_topic"]
+        detected_concepts = extracted["concepts"]
+
+        self._current_topic = domain
+        self._current_subtopic = primary_topic
+        self._current_concepts = detected_concepts
+
+        # Asynchronously update Knowledge Graph in Member 5 immediately with detected concepts!
+        if detected_concepts:
+            exit_code = event.payload.get("exit_code", 0)
+            asyncio.create_task(self.ai_client.update_knowledge_graph({
+                "domain": domain,
+                "topic": primary_topic,
+                "concepts": detected_concepts,
+                "file_path": event_file,
+                "outcome": "success" if exit_code == 0 else "friction",
+                "confidence_delta": 0.12 if exit_code == 0 else -0.15,
+            }))
+
         self._active_tools.add(event.source)
 
         # 5. Stuck Detection & Friction Scoring

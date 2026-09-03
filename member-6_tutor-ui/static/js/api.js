@@ -61,7 +61,7 @@ const API = {
     },
 
     async getKnowledgeGraph() {
-        return this.fetchJSON('/api/knowledge-graph', {}, 30000); // 30s cache for fast graph rendering
+        return this.fetchJSON('/api/knowledge-graph', {}, 1000); // 1s cache for near-instant updates
     },
 
     async getRecommendations() {

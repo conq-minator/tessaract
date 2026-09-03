@@ -9,32 +9,48 @@ from src.embeddings.vector_store import vector_store
 async def handle_update_knowledge(request: web.Request) -> web.Response:
     """POST /api/v1/knowledge/update — Ingest behavioral evidence from Member 4."""
     data = await request.json()
-    skill_id = data.get("skill") or data.get("skill_id")
-    evidence_type = data.get("evidence_type", "error_resolved")
-    delta = float(data.get("confidence_delta", 0.0))
+    concepts = data.get("concepts", [])
+    domain = data.get("domain") or data.get("topic") or "general"
+    skill_id = data.get("skill") or data.get("skill_id") or data.get("topic")
+    evidence_type = data.get("evidence_type") or ("success" if data.get("outcome") == "success" else "error_resolved")
+    delta = float(data.get("confidence_delta", 0.10 if data.get("outcome") == "success" else -0.10))
     episode_id = data.get("source_episode_id")
-    metadata = data.get("metadata", {})
+    metadata = data.get("metadata") or {}
+    metadata["domain"] = domain
+    metadata["file_path"] = data.get("file_path", "")
 
-    if not skill_id:
-        return web.json_response(
-            {"error": "missing_parameter", "message": "'skill' or 'skill_id' is required"},
-            status=400,
+    updated_nodes = []
+    if concepts and isinstance(concepts, list):
+        for concept_name in concepts:
+            clean_name = str(concept_name).strip()
+            cid = f"{domain}-{clean_name.lower().replace(' ', '-').replace('/', '-').replace('&', 'and')}"
+            meta = {**metadata, "name": clean_name, "domain": domain}
+            node = knowledge_graph.record_evidence(
+                skill_id=cid,
+                evidence_type=evidence_type,
+                confidence_delta=delta,
+                source_episode_id=episode_id,
+                metadata=meta,
+            )
+            if node:
+                updated_nodes.append(node.model_dump())
+
+    if skill_id and not concepts:
+        node = knowledge_graph.record_evidence(
+            skill_id=skill_id,
+            evidence_type=evidence_type,
+            confidence_delta=delta,
+            source_episode_id=episode_id,
+            metadata=metadata,
         )
+        if node:
+            updated_nodes.append(node.model_dump())
 
-    updated = knowledge_graph.record_evidence(
-        skill_id=skill_id,
-        evidence_type=evidence_type,
-        confidence_delta=delta,
-        source_episode_id=episode_id,
-        metadata=metadata,
-    )
-    if not updated:
-        return web.json_response(
-            {"error": "not_found", "message": f"Skill '{skill_id}' not found in Knowledge Graph"},
-            status=404,
-        )
-
-    return web.json_response(updated.model_dump())
+    return web.json_response({
+        "status": "success",
+        "updated_skills": updated_nodes,
+        "count": len(updated_nodes)
+    })
 
 
 async def handle_get_graph(request: web.Request) -> web.Response:

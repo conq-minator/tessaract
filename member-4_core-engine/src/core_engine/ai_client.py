@@ -78,6 +78,13 @@ class AIClient:
 
         return f"Completed learning episode on {episode_dict.get('topic', 'general')}."
 
+    def _get_headers(self) -> dict[str, str]:
+        secret = getattr(self, "shared_secret", None) or "rQUSMHvr5MVgVdCH-b8seB7UbRYeykyJYjBzaZeN2Pk"
+        return {
+            "Authorization": f"Bearer {secret}",
+            "Content-Type": "application/json"
+        }
+
     async def generate_hint(self, topic: str, context_str: str = "") -> str:
         """Request progressive hint from Member 5 AI Layer to wake up Ollama."""
         if self.mock_mode:
@@ -89,15 +96,9 @@ class AIClient:
             "level": 1,
             "context": context_str or f"User is encountering high cognitive friction in {topic}"
         }
-        headers = {}
-        if hasattr(self, "shared_secret") and self.shared_secret:
-            headers["Authorization"] = f"Bearer {self.shared_secret}"
-        else:
-            headers["Authorization"] = "Bearer rQUSMHvr5MVgVdCH-b8seB7UbRYeykyJYjBzaZeN2Pk"
-
         try:
             session = await self._get_session()
-            async with session.post(url, json=payload, headers=headers) as resp:
+            async with session.post(url, json=payload, headers=self._get_headers()) as resp:
                 if resp.status == 200:
                     data = await resp.json()
                     if isinstance(data, dict):
@@ -116,7 +117,7 @@ class AIClient:
         url = f"{self.base_url}/knowledge/update"
         try:
             session = await self._get_session()
-            async with session.post(url, json=knowledge_update_payload) as resp:
+            async with session.post(url, json=knowledge_update_payload, headers=self._get_headers()) as resp:
                 return resp.status in (200, 201, 202)
         except Exception as e:
             logger.debug("Knowledge graph update to AI layer failed: %s", e)

@@ -51,10 +51,13 @@ class AIClient:
                     nodes = [
                         {
                             "id": n.get("skill_id"),
+                            "skill_id": n.get("skill_id"),
                             "label": n.get("name"),
+                            "name": n.get("name") or n.get("label"),
                             "domain": n.get("domain"),
                             "status": n.get("status"),
                             "confidence": n.get("confidence"),
+                            "evidence_count": n.get("evidence_count", 1),
                         }
                         for n in raw_nodes
                     ]

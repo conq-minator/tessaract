@@ -89,7 +89,7 @@ class EventNormalizer:
             if "title" in normalized:
                 normalized["title"] = str(normalized["title"]).strip()
 
-        elif source == "vscode":
+        elif source in ("vscode", "vscode_sensor", "terminal", "editor"):
             # Normalize file paths and error messages
             if "file_path" in normalized:
                 normalized["file_path"] = str(normalized["file_path"]).replace("\\", "/")

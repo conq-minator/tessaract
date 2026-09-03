@@ -21,8 +21,7 @@ class KnowledgeGraph:
         self.store = store or KnowledgeStore()
         self.graph = nx.DiGraph()
         self._load_from_store()
-        if self.graph.number_of_nodes() == 0:
-            self._seed_default_taxonomies()
+        # Brand new empty graph: concepts are added dynamically upon code execution!
 
     def _load_from_store(self):
         """Load persistent skills and prerequisite edges from SQLite into NetworkX."""
@@ -116,7 +115,24 @@ class KnowledgeGraph:
     ) -> Optional[SkillNode]:
         """Ingest behavioral evidence, recalculate confidence, and persist updates."""
         if not self.graph.has_node(skill_id):
-            return None
+            # Auto-register newly discovered skill/concept!
+            name = (metadata.get("name") if metadata else None) or skill_id.replace("-", " ").replace("_", " ").title()
+            domain = (metadata.get("domain") if metadata else None) or "general"
+            initial_conf = 0.70 if confidence_delta >= 0 else 0.35
+
+            node = SkillNode(
+                skill_id=skill_id,
+                name=name,
+                domain=domain,
+                parent_id=None,
+                confidence=initial_conf,
+                evidence_count=1,
+                status=calculate_status(initial_conf),
+                last_updated=datetime.now(timezone.utc).isoformat(),
+                prerequisites=[]
+            )
+            self.upsert_node(node)
+            return node
 
         node_data = self.graph.nodes[skill_id]
         cur_conf = node_data["confidence"]
