@@ -28,27 +28,36 @@ async def generate_progressive_assistance(
     gap_names = [g.name for g in gaps[:2]] if gaps else []
     gap_context = f"Missing prerequisites identified: {', '.join(gap_names)}. " if gap_names else ""
 
+    error_context = f"\nLearner's current error / situation: {context}\n" if context else ""
+
     prompts = {
         1: (
-            f"You are a progressive learning tutor. The user is stuck on '{topic}' (Friction: {friction_score:.2f}). {gap_context}"
-            f"Provide a LEVEL 1 HINT: Give a short, thought-provoking question or nudge toward first principles. "
-            f"DO NOT give the answer or write code. Max 2 sentences."
+            f"You are an expert programming tutor helping a learner stuck on '{topic}' (Friction: {friction_score:.2f}). {gap_context}"
+            f"{error_context}"
+            f"Provide a LEVEL 1 HINT: Directly point out what part of their code or operation to inspect based on the error and code above. "
+            f"CRITICAL RULES:\n"
+            f"- NEVER ask the user questions like 'what error are you seeing?' or 'can you provide more info?'.\n"
+            f"- DO NOT provide the full solution code.\n"
+            f"- Give a direct, insightful pedagogical hint in 1-2 concise sentences."
         ),
         2: (
-            f"You are a progressive learning tutor. The user needs a LEVEL 2 CONCEPT EXPLANATION for '{topic}'. {gap_context}"
-            f"Explain the mental model simply in 1-2 paragraphs. Use a concrete real-world analogy. No copy-paste solutions."
+            f"You are an expert programming tutor helping a learner with '{topic}'. {gap_context}"
+            f"{error_context}"
+            f"Provide a LEVEL 2 CONCEPT EXPLANATION: Explain the underlying mental model simply in 1-2 paragraphs using a vivid real-world analogy. Clearly explain why this specific error happens and how the language behaves under the hood."
         ),
         3: (
-            f"You are a progressive learning tutor. The user needs a LEVEL 3 DETAILED BREAKDOWN for '{topic}'. {gap_context}"
-            f"Break the concept down step-by-step. Show what is happening under the hood (e.g. memory addresses, call stack, execution flow)."
+            f"You are an expert programming tutor helping a learner with '{topic}'. {gap_context}"
+            f"{error_context}"
+            f"Provide a LEVEL 3 DETAILED BREAKDOWN: Break down step-by-step what happens in memory, types, and control flow when this error triggers, showing the before-and-after fix."
         ),
         4: (
-            f"You are a progressive learning tutor. The user needs a LEVEL 4 PRACTICE PROBLEM on '{topic}' to test understanding. {gap_context}"
-            f"Present a single, bite-sized practice scenario or puzzle. Ask them what the output or bug is, without giving away the answer."
+            f"You are an expert programming tutor helping a learner with '{topic}'. {gap_context}"
+            f"{error_context}"
+            f"Provide a LEVEL 4 PRACTICE PROBLEM on '{topic}' to test understanding. Present a single bite-sized scenario or puzzle."
         ),
         5: (
-            f"You are a progressive learning tutor. The user has reached LEVEL 5 FULL SOLUTION for '{topic}'. {gap_context}"
-            f"Context: {context or 'None provided'}\n"
+            f"You are an expert programming tutor helping a learner with '{topic}'. {gap_context}"
+            f"{error_context}"
             f"Provide the complete, correct solution, annotated with clear comments explaining why each line works."
         ),
     }
@@ -67,15 +76,37 @@ async def generate_progressive_assistance(
         content = result.content
         model_name = result.model_name
         latency_ms = result.latency_ms
+
+        # If model returned a generic non-hint asking the user questions, fallback to smart rule
+        c_low = (content or "").lower()
+        if not content or "what is the exact error" in c_low or "what error are you seeing" in c_low or "can you provide" in c_low:
+            raise ValueError("Model gave generic query instead of hint")
     except Exception as e:
-        # Fast pedagogical fallback based on topic and level
-        fallbacks = {
-            "python": "In Python, check that your loop syntax follows 'for item in collection:' and that variable types match.",
-            "pointers": "In C, ensure pointers are allocated with malloc or point to a valid address before dereferencing with '*'.",
-            "general": "Double check syntax error line markers and verify that matching brackets, quotes, and keywords are intact."
-        }
-        content = fallbacks.get(topic.lower(), f"Check your {topic} syntax and error details.")
-        model_name = "fast-rules"
+        # Context-aware smart pedagogical fallback
+        c_lower = str(context or "").lower()
+        if "typeerror" in c_lower and "concatenate str" in c_lower:
+            content = "In Python, '+' cannot combine a string with an integer directly. Check the initial type of your accumulator and ensure both operands have matching types."
+        elif "typeerror" in c_lower:
+            content = f"A type mismatch occurred in {topic}. Check the data types of variables being operated on or passed to functions."
+        elif "indexerror" in c_lower:
+            content = "Lists in Python are 0-indexed and run up to len - 1. Check whether your loop range or index reaches beyond the last element."
+        elif "keyerror" in c_lower:
+            content = "The dictionary key does not exist. Check if the key is present using 'key in dict' or safely retrieve it with 'dict.get(key, default)'."
+        elif "recursionerror" in c_lower:
+            content = "The recursion depth limit was exceeded. Verify that your recursive function has a reachable base case that stops execution."
+        elif "syntaxerror" in c_lower:
+            content = f"A syntax error was detected in {topic}. Check matching colons, brackets, and keyword placement on the indicated line."
+        elif "pointer" in c_lower or "segfault" in c_lower or "segmentation" in c_lower:
+            content = "A segmentation fault occurred. Ensure pointers are allocated with valid memory addresses before dereferencing with '*'."
+        else:
+            fallbacks = {
+                "python": "In Python, verify your syntax, indentation, and ensure variable types match expected operations.",
+                "javascript": "In JavaScript, check for undefined variables, missing async/await, or scope boundaries.",
+                "c": "In C, ensure pointers point to allocated memory and array indexes stay within bounds.",
+                "general": "Double check syntax error line markers and verify that matching brackets, quotes, and keywords are intact."
+            }
+            content = fallbacks.get(topic.lower(), f"Check your {topic} error details and variable types.")
+        model_name = "smart-rules"
 
     level_names = {
         1: "Hint",

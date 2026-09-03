@@ -168,10 +168,37 @@ class CoreEngineApp:
                 friction_score.level,
                 friction_score.score,
             )
-            # Generate AI pedagogical hint to wake up Ollama in the background
+            # Generate AI pedagogical hint tailored to exact runtime error and code snippet
+            err_msg = event.payload.get("error_message") or event.payload.get("command") or ""
+            err_line = event.payload.get("error_line", "")
+            err_file = event.payload.get("file_path", "")
+            code_snippet = event.payload.get("code_snippet", "")
+
+            if not code_snippet and err_file:
+                candidate_paths = [err_file, os.path.join(os.getcwd(), err_file)]
+                for p in candidate_paths:
+                    if os.path.exists(p) and os.path.isfile(p):
+                        try:
+                            with open(p, "r", encoding="utf-8", errors="ignore") as f:
+                                all_lines = f.readlines()
+                                if str(err_line).isdigit() and int(err_line) > 0:
+                                    ln = int(err_line)
+                                    s = max(0, ln - 4)
+                                    e = min(len(all_lines), ln + 3)
+                                    code_snippet = "".join(all_lines[s:e])
+                                else:
+                                    code_snippet = "".join(all_lines[:25])
+                            break
+                        except Exception:
+                            pass
+
+            context_str = f"Language: {self._current_topic}\nFile: {err_file}:{err_line}\nError: {err_msg}"
+            if code_snippet:
+                context_str += f"\nCode Context:\n```\n{code_snippet.strip()}\n```"
+
             hint_text = await self.ai_client.generate_hint(
                 topic=self._current_topic,
-                context_str=f"User has encountered {friction_score.signals.get('repeated_errors', {}).get('count', 0)} repeated errors in {self._current_topic}"
+                context_str=context_str
             )
             await self.alert_stream.broadcast(
                 alert_type="stuck_detected",

@@ -1,8 +1,8 @@
 {
   "name": "tesseract-vscode-sensor",
-  "displayName": "Tesseract VS Code Sensor",
-  "description": "Privacy-first developer activity sensor for Tesseract Behavioral AI Copilot",
-  "version": "0.1.4",
+  "displayName": "Tesseract Sensor for VS Code",
+  "description": "Behavioral friction detection and contextual cognitive sensor for VS Code",
+  "version": "0.1.5",
   "license": "MIT",
   "publisher": "tesseract",
   "repository": {
