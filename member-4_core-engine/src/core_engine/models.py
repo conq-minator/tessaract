@@ -186,6 +186,7 @@ class AlertMessage:
     def to_dict(self) -> dict[str, Any]:
         return {
             "alert_type": self.alert_type,
+            "type": self.alert_type,
             "timestamp": self.timestamp,
             "payload": self.payload,
         }

@@ -34,7 +34,16 @@
         <main class="app-container">
             <header class="page-header">
                 <h1>{{ title }}</h1>
-                <div class="header-actions">
+                <div class="header-actions" style="display: flex; align-items: center; gap: 16px;">
+                    <div id="header-model-badge" style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.06); padding: 5px 12px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.12);">
+                        <span style="font-size: 0.8rem; opacity: 0.8;">🤖 Model:</span>
+                        <select id="global-model-selector" onchange="window.handleGlobalModelChange(this.value)" style="background: #1e1e2e; color: #a5b4fc; border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 2px 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; outline: none;">
+                            <option value="smollm2:1.7b">smollm2:1.7b (Fast)</option>
+                            <option value="gemma2:2b">gemma2:2b (Balanced)</option>
+                            <option value="gemma4:e2b">gemma4:e2b (Deep)</option>
+                            <option value="fast-rules">fast-rules (Instant)</option>
+                        </select>
+                    </div>
                     {% block header_actions %}{% endblock %}
                 </div>
             </header>
@@ -50,8 +59,39 @@
     {% include 'components/notification.html' ignore missing %}
 
     <!-- Scripts -->
-    <script src="/static/js/api.js?v=4"></script>
-    <script src="/static/js/app.js?v=4"></script>
+    <script src="/static/js/api.js?v=5"></script>
+    <script src="/static/js/app.js?v=5"></script>
+    <script>
+        window.handleGlobalModelChange = async function(modelName) {
+            try {
+                const res = await window.API.selectModel(modelName);
+                if (window.App && window.App.showToast) {
+                    window.App.showToast(`AI Model switched to ${modelName}`, 'success');
+                }
+            } catch(e) {
+                console.error("Failed to switch model:", e);
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const data = await window.API.getModels();
+                const sel = document.getElementById('global-model-selector');
+                if (sel && data && data.available_models) {
+                    sel.innerHTML = '';
+                    for (const m of data.available_models) {
+                        const opt = document.createElement('option');
+                        opt.value = m;
+                        opt.textContent = m + (m === 'smollm2:1.7b' ? ' (Fast)' : m === 'gemma2:2b' ? ' (Balanced)' : m === 'gemma4:e2b' ? ' (Deep)' : '');
+                        if (m === data.current_model) opt.selected = true;
+                        sel.appendChild(opt);
+                    }
+                }
+            } catch(e) {
+                console.debug("Model load notice:", e);
+            }
+        });
+    </script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

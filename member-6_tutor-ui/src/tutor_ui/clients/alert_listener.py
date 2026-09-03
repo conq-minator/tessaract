@@ -63,10 +63,13 @@ class AlertListener:
             
             logger.debug(f"Received WS event: {event_type}")
             
-            if event_type == "friction_alert":
+            if event_type in ("friction_alert", "stuck_detected"):
+                score = payload.get("score") or payload.get("friction_score", 0.8)
+                topic = payload.get("topic", "your code")
+                hint = payload.get("hint") or f"High cognitive friction detected in {topic}. Would you like an AI assistance hint?"
                 await self.notification_mgr.notify_friction_alert(
-                    score=payload.get("score", 0.0),
-                    hint=payload.get("hint", "Consider taking a break or asking for help.")
+                    score=score,
+                    hint=hint
                 )
             else:
                 # Generic pass-through

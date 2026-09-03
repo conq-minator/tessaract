@@ -78,6 +78,35 @@ class AIClient:
 
         return f"Completed learning episode on {episode_dict.get('topic', 'general')}."
 
+    async def generate_hint(self, topic: str, context_str: str = "") -> str:
+        """Request progressive hint from Member 5 AI Layer to wake up Ollama."""
+        if self.mock_mode:
+            return f"Review syntax and variable usage in {topic}."
+
+        url = f"{self.base_url}/tutor/hint"
+        payload = {
+            "topic": topic,
+            "level": 1,
+            "context": context_str or f"User is encountering high cognitive friction in {topic}"
+        }
+        headers = {}
+        if hasattr(self, "shared_secret") and self.shared_secret:
+            headers["Authorization"] = f"Bearer {self.shared_secret}"
+        else:
+            headers["Authorization"] = "Bearer rQUSMHvr5MVgVdCH-b8seB7UbRYeykyJYjBzaZeN2Pk"
+
+        try:
+            session = await self._get_session()
+            async with session.post(url, json=payload, headers=headers) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    if isinstance(data, dict):
+                        return str(data.get("hint") or data.get("message") or "")
+        except Exception as e:
+            logger.debug("AI service hint request failed (%s)", e)
+
+        return f"Check your {topic} syntax and error details."
+
     async def update_knowledge_graph(self, knowledge_update_payload: dict[str, Any]) -> bool:
         """Send behavioral signals to Member 5 for Knowledge Graph update."""
         if self.mock_mode:
@@ -92,3 +121,4 @@ class AIClient:
         except Exception as e:
             logger.debug("Knowledge graph update to AI layer failed: %s", e)
             return False
+

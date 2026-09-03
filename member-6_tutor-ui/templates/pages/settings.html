@@ -72,7 +72,65 @@
             <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
         </div>
     </div>
+
+    <!-- AI Model Selection Card -->
+    <div class="glass-card animate-fade-in" style="animation-delay: 0.3s; grid-column: span 2;">
+        <div class="card-header">
+            <h3 class="card-title">🤖 AI Reasoning & Tutor Model</h3>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Select Active Ollama Model</label>
+            <div style="display: flex; gap: 16px; align-items: center; max-width: 600px;">
+                <select class="form-input" id="settings-model-select">
+                    <option value="smollm2:1.7b">smollm2:1.7b — Ultra-Fast 1.8GB (Recommended, ~1.5s)</option>
+                    <option value="gemma2:2b">gemma2:2b — Balanced Reasoning & Speed 1.6GB (~4s)</option>
+                    <option value="gemma4:e2b">gemma4:e2b — Deep Reasoning 7.2GB (High Resource, ~40s)</option>
+                    <option value="fast-rules">fast-rules — Instant Heuristic Fallback (&lt;50ms)</option>
+                </select>
+                <button class="btn btn-primary" style="white-space: nowrap;" onclick="window.applySettingsModel()">Switch Model</button>
+            </div>
+            <p class="text-muted" id="settings-model-desc" style="margin-top: 10px; font-size: 0.85rem;">
+                Tesseract automatically detects installed models via local Ollama. Choosing lightweight models gives sub-second hints in the IDE.
+            </p>
+        </div>
+    </div>
 </div>
+
+<script>
+    window.applySettingsModel = async function() {
+        const sel = document.getElementById('settings-model-select');
+        if (!sel) return;
+        try {
+            const res = await window.API.selectModel(sel.value);
+            const globalSel = document.getElementById('global-model-selector');
+            if (globalSel) globalSel.value = sel.value;
+            if (window.App && window.App.showToast) {
+                window.App.showToast(`AI Model set to ${sel.value}`, 'success');
+            } else {
+                alert(`AI Model successfully changed to ${sel.value}`);
+            }
+        } catch(e) {
+            alert('Failed to switch model: ' + e);
+        }
+    };
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        try {
+            const data = await window.API.getModels();
+            const sel = document.getElementById('settings-model-select');
+            if (sel && data && data.available_models) {
+                sel.innerHTML = '';
+                for (const m of data.available_models) {
+                    const opt = document.createElement('option');
+                    opt.value = m;
+                    opt.textContent = m + (m === 'smollm2:1.7b' ? ' — Ultra-Fast 1.8GB (Recommended)' : m === 'gemma2:2b' ? ' — Balanced 1.6GB' : m === 'gemma4:e2b' ? ' — Deep Reasoning 7.2GB' : '');
+                    if (m === data.current_model) opt.selected = true;
+                    sel.appendChild(opt);
+                }
+            }
+        } catch(e) {}
+    });
+</script>
 
 <style>
 .settings-grid {

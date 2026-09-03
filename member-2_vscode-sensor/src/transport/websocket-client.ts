@@ -70,11 +70,14 @@ export class WebSocketClient {
 
         try {
             const headers: Record<string, string> = {};
+            let connectUrl = this.url;
             if (this.secret) {
                 headers['Authorization'] = `Bearer ${this.secret}`;
+                const separator = connectUrl.includes('?') ? '&' : '?';
+                connectUrl = `${connectUrl}${separator}token=${encodeURIComponent(this.secret)}`;
             }
 
-            this.ws = new WebSocket(this.url, { headers });
+            this.ws = new WebSocket(connectUrl, { headers });
 
             this.ws.on('open', () => {
                 Logger.info('WebSocket connected successfully to Core Engine.');

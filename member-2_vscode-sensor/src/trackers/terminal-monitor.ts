@@ -38,10 +38,27 @@ export class TerminalMonitor {
                 win.onDidEndTerminalShellExecution((e) => {
                     const rawCommand = e.execution.commandLine.value || '';
                     const cleanCommand = Sanitizer.sanitizeText(rawCommand);
+                    const lowerCmd = cleanCommand.toLowerCase();
 
-                    const payload: TerminalCommandPayload = {
+                    // Detect active file & language
+                    const activeDoc = vscode.window.activeTextEditor?.document;
+                    let detectedFilePath = activeDoc ? Sanitizer.formatFilePath(activeDoc.uri) : undefined;
+                    let detectedLang = activeDoc ? activeDoc.languageId : undefined;
+
+                    if (lowerCmd.includes('python') || lowerCmd.includes('.py')) {
+                        detectedLang = 'python';
+                    } else if (lowerCmd.includes('node') || lowerCmd.includes('.js') || lowerCmd.includes('.ts')) {
+                        detectedLang = 'javascript';
+                    } else if (lowerCmd.includes('gcc') || lowerCmd.includes('clang') || lowerCmd.includes('.c')) {
+                        detectedLang = 'c';
+                    }
+
+                    const payload: TerminalCommandPayload & { file_path?: string; language?: string; topic?: string } = {
                         command: cleanCommand,
                         exit_code: e.exitCode,
+                        file_path: detectedFilePath,
+                        language: detectedLang,
+                        topic: detectedLang
                     };
                     this.emitEvent('terminal_command', payload);
                 })
@@ -51,9 +68,13 @@ export class TerminalMonitor {
             context.subscriptions.push(
                 vscode.window.onDidCloseTerminal((terminal) => {
                     if (terminal.exitStatus) {
-                        const payload: TerminalCommandPayload = {
+                        const activeDoc = vscode.window.activeTextEditor?.document;
+                        const detectedLang = activeDoc ? activeDoc.languageId : undefined;
+                        const payload: TerminalCommandPayload & { language?: string; topic?: string } = {
                             command: `[Terminal: ${terminal.name}]`,
                             exit_code: terminal.exitStatus.code,
+                            language: detectedLang,
+                            topic: detectedLang
                         };
                         this.emitEvent('terminal_command', payload);
                     }

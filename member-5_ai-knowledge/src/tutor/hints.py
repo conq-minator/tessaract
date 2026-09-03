@@ -1,5 +1,6 @@
 """Progressive pedagogical assistance engine generating Levels 1 through 5 assistance."""
 
+import asyncio
 from typing import Dict, Any, Optional
 from src.models.registry import registry
 from src.knowledge.graph import knowledge_graph
@@ -53,7 +54,28 @@ async def generate_progressive_assistance(
     }
 
     prompt = prompts[level]
-    result = await registry.complete(prompt=prompt, task_type="reason", max_tokens=600)
+    content = ""
+    model_name = "smollm2:1.7b"
+    latency_ms = 0.0
+
+    try:
+        max_toks = 150 if level <= 2 else 300
+        result = await asyncio.wait_for(
+            registry.complete(prompt=prompt, task_type="reason", max_tokens=max_toks),
+            timeout=5.0
+        )
+        content = result.content
+        model_name = result.model_name
+        latency_ms = result.latency_ms
+    except Exception as e:
+        # Fast pedagogical fallback based on topic and level
+        fallbacks = {
+            "python": "In Python, check that your loop syntax follows 'for item in collection:' and that variable types match.",
+            "pointers": "In C, ensure pointers are allocated with malloc or point to a valid address before dereferencing with '*'.",
+            "general": "Double check syntax error line markers and verify that matching brackets, quotes, and keywords are intact."
+        }
+        content = fallbacks.get(topic.lower(), f"Check your {topic} syntax and error details.")
+        model_name = "fast-rules"
 
     level_names = {
         1: "Hint",
@@ -67,8 +89,9 @@ async def generate_progressive_assistance(
         "level": level,
         "level_name": level_names[level],
         "topic": topic,
-        "content": result.content,
+        "content": content,
+        "hint": content,
         "identified_gaps": gap_names,
-        "model_used": result.model_name,
-        "latency_ms": result.latency_ms,
+        "model_used": model_name,
+        "latency_ms": latency_ms,
     }

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 
 from aiohttp import web
 
@@ -71,6 +72,7 @@ class CoreEngineApp:
         self._current_topic: str = "general"
         self._current_intent: str = "working"
         self._active_tools: set[str] = set()
+        self._last_alert_time: dict[str, float] = {}
 
         # Background tasks
         self._background_tasks: list[asyncio.Task] = []
@@ -116,21 +118,60 @@ class CoreEngineApp:
         intent, confidence, rationale = self.intent_classifier.classify_event(event)
         self._current_intent = intent
 
-        # 4. Extract Topic
-        if session.topics:
-            self._current_topic = session.topics[-1]
+        # 4. Extract Topic from current event payload
+        event_topic = None
+        if event.payload.get("topic"):
+            event_topic = str(event.payload["topic"]).lower()
+        elif event.payload.get("language"):
+            lang = str(event.payload["language"]).lower()
+            if lang in ("python", "javascript", "typescript", "c", "cpp", "java", "rust"):
+                event_topic = lang
+        elif "command" in event.payload:
+            cmd = str(event.payload["command"]).lower()
+            if "python" in cmd or ".py" in cmd:
+                event_topic = "python"
+            elif "node" in cmd or ".js" in cmd or ".ts" in cmd:
+                event_topic = "javascript"
+            elif any(c_kw in cmd for c_kw in ["gcc", "clang", "g++", ".c ", ".cpp"]):
+                event_topic = "pointers" if "pointer" in cmd else "c-programming"
+
+        if not event_topic and "file_path" in event.payload:
+            fp = str(event.payload["file_path"]).lower()
+            if fp.endswith(".py"):
+                event_topic = "python"
+            elif fp.endswith((".c", ".h", ".cpp")):
+                event_topic = "pointers" if "pointer" in fp else "c-programming"
+            elif fp.endswith((".js", ".ts")):
+                event_topic = "javascript"
+
+        if event_topic:
+            self._current_topic = event_topic
+        elif not self._current_topic or self._current_topic == "general":
+            if session.topics:
+                self._current_topic = session.topics[-1]
         self._active_tools.add(event.source)
 
         # 5. Stuck Detection & Friction Scoring
         friction_score = self.stuck_detector.update_with_event(event, topic=self._current_topic)
         self.event_store.record_friction_score(self._current_topic, friction_score)
 
-        # Check for High Friction Alert
-        if friction_score.score >= self.config.friction_threshold_high:
+        # Check for Friction Alert (Medium or High) with 60s cooldown per topic
+        now_ts = time.time()
+        last_alert = self._last_alert_time.get(self._current_topic, 0.0)
+        cooldown_s = 60.0
+
+        if (friction_score.score >= self.config.friction_threshold_medium or friction_score.level in ("medium", "high")) and (now_ts - last_alert >= cooldown_s):
+            self._last_alert_time[self._current_topic] = now_ts
             logger.warning(
-                "High friction detected for topic '%s'! Score: %.2f",
+                "Friction threshold reached for topic '%s'! Level: %s, Score: %.2f",
                 self._current_topic,
+                friction_score.level,
                 friction_score.score,
+            )
+            # Generate AI pedagogical hint to wake up Ollama in the background
+            hint_text = await self.ai_client.generate_hint(
+                topic=self._current_topic,
+                context_str=f"User has encountered {friction_score.signals.get('repeated_errors', {}).get('count', 0)} repeated errors in {self._current_topic}"
             )
             await self.alert_stream.broadcast(
                 alert_type="stuck_detected",
@@ -138,6 +179,7 @@ class CoreEngineApp:
                     "friction_score": friction_score.score,
                     "level": friction_score.level,
                     "topic": self._current_topic,
+                    "hint": hint_text,
                     "signals": friction_score.signals,
                     "episode_id": (
                         self.episode_grouper.active_episode.episode_id

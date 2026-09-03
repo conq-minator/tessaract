@@ -2,7 +2,7 @@
   "name": "tesseract-vscode-sensor",
   "displayName": "Tesseract VS Code Sensor",
   "description": "Privacy-first developer activity sensor for Tesseract Behavioral AI Copilot",
-  "version": "0.1.1",
+  "version": "0.1.4",
   "license": "MIT",
   "publisher": "tesseract",
   "repository": {
@@ -22,6 +22,12 @@
   "contributes": {
     "commands": [
       {
+        "command": "tesseract.runFile",
+        "title": "Tesseract: Run Active File",
+        "icon": "$(play)",
+        "category": "Tesseract"
+      },
+      {
         "command": "tesseract.toggleSensor",
         "title": "Tesseract: Toggle Sensor",
         "category": "Tesseract"
@@ -32,6 +38,15 @@
         "category": "Tesseract"
       }
     ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "tesseract.runFile",
+          "group": "navigation",
+          "when": "editorTextFocus"
+        }
+      ]
+    },
     "configuration": {
       "type": "object",
       "title": "Tesseract VS Code Sensor",

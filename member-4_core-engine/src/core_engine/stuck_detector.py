@@ -63,10 +63,10 @@ class StuckDetector:
 
         if is_error:
             state["error_count"] += 1
-            if error_sig and error_sig == state["last_error_signature"]:
+            state["execution_attempts"] += 1
+            if state["error_count"] >= 2:
                 state["repeated_errors"] += 1
-            else:
-                state["last_error_signature"] = error_sig
+            state["last_error_signature"] = error_sig
         else:
             # Check for success (e.g. exit code 0 or successful build)
             if payload.get("exit_code") == 0 and "run" in event_type:
@@ -77,7 +77,7 @@ class StuckDetector:
         # 2. Execution attempts
         if source == "vscode" and any(
             k in event_type
-            for k in ["run", "execute", "build", "terminal_command", "diagnostic_error", "compile"]
+            for k in ["run", "execute", "build", "terminal_command", "diagnostic_error", "compile", "error_detected"]
         ):
             state["execution_attempts"] += 1
 
@@ -135,18 +135,18 @@ class StuckDetector:
         state = self.get_friction_state(topic)
 
         # Configurable weights
-        w_rep_errors = 0.30
-        w_exec = 0.20
-        w_searches = 0.15
-        w_time = 0.25
-        w_tutorials = 0.10
+        w_rep_errors = 0.40
+        w_exec = 0.30
+        w_searches = 0.10
+        w_time = 0.15
+        w_tutorials = 0.05
 
         # Normalization ceilings
-        max_rep_errors = 5.0
-        max_exec = 8.0
-        max_searches = 4.0
-        max_time_s = 1800.0  # 30 mins
-        max_tutorials = 1.5
+        max_rep_errors = 3.0
+        max_exec = 3.0
+        max_searches = 3.0
+        max_time_s = 600.0  # 10 mins
+        max_tutorials = 1.0
 
         c_rep = min(1.0, state["repeated_errors"] / max_rep_errors) * w_rep_errors
         c_exec = min(1.0, state["execution_attempts"] / max_exec) * w_exec

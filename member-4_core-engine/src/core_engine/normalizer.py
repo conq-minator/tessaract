@@ -119,6 +119,10 @@ class EventNormalizer:
 
     def _is_duplicate(self, event: TesseractEvent) -> bool:
         """Check if an identical event occurred within the dedup window."""
+        # Never deduplicate error events or terminal commands - repeated failures are primary friction signals!
+        if "error" in event.event_type.lower() or "terminal" in event.event_type.lower():
+            return False
+
         now_ms = time.time() * 1000.0
         sig = self._compute_signature(event)
 

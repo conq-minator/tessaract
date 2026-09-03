@@ -3,6 +3,7 @@
  */
 
 import * as vscode from 'vscode';
+import { exec } from 'child_process';
 import { v4 as uuidv4 } from 'uuid';
 import { WebSocketClient } from '../transport/websocket-client';
 import { SessionManager } from '../utils/session-manager';
@@ -59,6 +60,9 @@ export class EditorTracker {
                     line_count: doc.lineCount,
                 };
                 this.emitEvent('file_saved', payload);
+
+                // Automatic syntax check on save (runs py_compile / node check in background)
+                this.validateSyntaxOnSave(doc, filePath);
             })
         );
 
@@ -126,6 +130,55 @@ export class EditorTracker {
             doc.fileName.includes('node_modules') ||
             doc.fileName.endsWith('.log')
         );
+    }
+
+    private validateSyntaxOnSave(doc: vscode.TextDocument, filePath: string): void {
+        const lang = doc.languageId;
+        const fsPath = doc.uri.fsPath;
+        if (!fsPath) return;
+
+        let cmd = '';
+        if (lang === 'python' || fsPath.endsWith('.py')) {
+            cmd = `python -m py_compile "${fsPath}"`;
+        } else if (lang === 'javascript' || fsPath.endsWith('.js')) {
+            cmd = `node --check "${fsPath}"`;
+        } else {
+            return;
+        }
+
+        exec(cmd, (err, stdout, stderr) => {
+            if (err) {
+                const output = (stderr || stdout || err.message).trim();
+                let lineNum = 1;
+                const match = output.match(/line\s+(\d+)/i);
+                if (match) {
+                    lineNum = parseInt(match[1], 10);
+                }
+
+                this.client.send({
+                    event_id: uuidv4(),
+                    source: 'vscode',
+                    event_type: 'error_detected',
+                    timestamp: new Date().toISOString(),
+                    payload: {
+                        file_path: filePath,
+                        language: (lang === 'python' || fsPath.endsWith('.py')) ? 'python' : lang,
+                        topic: (lang === 'python' || fsPath.endsWith('.py')) ? 'python' : undefined,
+                        error_message: output.slice(0, 300),
+                        error_line: lineNum,
+                        severity: 'error',
+                        source: 'compiler_check'
+                    },
+                    metadata: {
+                        session_id: this.sessionMgr.getSessionId(),
+                        sequence_number: this.sessionMgr.nextSequence(),
+                        confidence: 1.0,
+                        privacy_level: 'local_only',
+                        version: '0.1.0'
+                    }
+                });
+            }
+        });
     }
 
     private emitEvent<T extends Record<string, unknown>>(

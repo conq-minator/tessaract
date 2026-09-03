@@ -87,6 +87,44 @@ async def stream_events(request: web.Request) -> web.StreamResponse:
     return response
 
 
+async def get_models(request: web.Request) -> web.Response:
+    import aiohttp
+    url = "http://127.0.0.1:9701/api/v1/models/available"
+    headers = {"Authorization": "Bearer rQUSMHvr5MVgVdCH-b8seB7UbRYeykyJYjBzaZeN2Pk"}
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=2.0)) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    return web.json_response(data)
+    except Exception:
+        pass
+    return web.json_response({
+        "current_model": "smollm2:1.7b",
+        "available_models": ["smollm2:1.7b", "gemma2:2b", "gemma4:e2b", "fast-rules"],
+        "recommended": "smollm2:1.7b"
+    })
+
+
+async def select_model(request: web.Request) -> web.Response:
+    import aiohttp
+    try:
+        req_data = await request.json()
+    except Exception:
+        req_data = {}
+    url = "http://127.0.0.1:9701/api/v1/models/select"
+    headers = {"Authorization": "Bearer rQUSMHvr5MVgVdCH-b8seB7UbRYeykyJYjBzaZeN2Pk"}
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=req_data, headers=headers, timeout=aiohttp.ClientTimeout(total=3.0)) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    return web.json_response(data)
+    except Exception as e:
+        return web.json_response({"status": "error", "message": str(e)}, status=500)
+    return web.json_response({"status": "error", "message": "Failed to reach AI service"}, status=502)
+
+
 def setup_api_routes(app: web.Application) -> None:
     app.router.add_get('/api/context', get_context)
     app.router.add_get('/api/friction', get_friction)
@@ -95,3 +133,5 @@ def setup_api_routes(app: web.Application) -> None:
     app.router.add_get('/api/knowledge-graph', get_knowledge_graph)
     app.router.add_get('/api/recommendations', get_recommendations)
     app.router.add_get('/api/stream', stream_events)
+    app.router.add_get('/api/models', get_models)
+    app.router.add_post('/api/models/select', select_model)

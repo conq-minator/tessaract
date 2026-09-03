@@ -105,14 +105,15 @@ class SessionBuilder:
         if "file_path" in payload and isinstance(payload["file_path"], str):
             # e.g., main.c -> c-programming, test_pointers.c -> pointers
             fp = payload["file_path"].lower()
-            if fp.endswith((".c", ".h")):
-                candidates.append("c-programming")
+            if fp.endswith((".c", ".h", ".cpp")):
+                if "pointer" in fp:
+                    candidates.append("pointers")
+                else:
+                    candidates.append("c-programming")
             elif fp.endswith(".py"):
                 candidates.append("python")
             elif fp.endswith((".js", ".ts")):
                 candidates.append("javascript")
-            if "pointer" in fp:
-                candidates.append("pointers")
             if "tree" in fp or "list" in fp:
                 candidates.append("data-structures")
 

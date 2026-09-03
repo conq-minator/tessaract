@@ -68,6 +68,20 @@ const API = {
         return this.fetchJSON('/api/recommendations', {}, 30000); // 30s cache
     },
 
+    async getModels() {
+        const resp = await fetch('/api/models');
+        return await resp.json();
+    },
+
+    async selectModel(modelName) {
+        const resp = await fetch('/api/models/select', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model_name: modelName })
+        });
+        return await resp.json();
+    },
+
     invalidateCache() {
         _apiCache.clear();
     }

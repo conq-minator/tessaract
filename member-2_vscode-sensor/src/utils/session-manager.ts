@@ -28,6 +28,10 @@ export class SessionManager {
         return ++this.sequenceNumber;
     }
 
+    public getNextSequenceNumber(): number {
+        return ++this.sequenceNumber;
+    }
+
     public resetSession(): string {
         this.sessionId = uuidv4();
         this.sequenceNumber = 0;
