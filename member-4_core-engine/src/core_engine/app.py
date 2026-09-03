@@ -230,9 +230,11 @@ class CoreEngineApp:
 
         # Inbound sensor WebSocket: ws://localhost:9700/events
         app.router.add_get("/events", self.event_server.handle_ws_events)
+        app.router.add_get("/ws/events", self.event_server.handle_ws_events)
 
         # Outbound UI alert WebSocket: ws://localhost:9700/alerts
         app.router.add_get("/alerts", self.alert_stream.handle_ws_alerts)
+        app.router.add_get("/ws/alerts", self.alert_stream.handle_ws_alerts)
 
         # Outbound REST API: http://localhost:9700/api/v1/...
         self.rest_api.register_routes(app)

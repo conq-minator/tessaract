@@ -78,7 +78,8 @@ async def on_startup(app: web.Application):
     
     if not app["mock_mode"]:
         # Only start the alert listener in real mode
-        ws_url = "ws://localhost:9700/ws/alerts"
+        cfg = app["config"]
+        ws_url = f"ws://{cfg.core_host}:{cfg.core_port}/alerts"
         app["alert_listener"] = AlertListener(ws_url, app["notification_mgr"])
         await app["alert_listener"].start()
     else:

@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Dict, Any, List
 from tutor_ui.clients.core_client import CoreClient
 from tutor_ui.mock.mock_core import get_mock_context, get_mock_friction, get_mock_episodes, get_mock_session
 
@@ -19,7 +19,7 @@ class AssistanceService:
         ctx = await self.core_client.get_context()
         if ctx:
             return ctx
-        return {"subject": "Unknown", "topic": "Unknown", "application": "System"}
+        return {"subject": "System", "topic": "Idle", "application": "System"}
 
     async def get_friction(self) -> Dict[str, Any]:
         if self.mock_mode:
@@ -30,9 +30,18 @@ class AssistanceService:
             return frict
         return {"level": "LOW", "score": 0.0}
         
-    async def get_episodes(self) -> list:
-        # Member 4 API for episodes not defined yet in core_client, fallback to mock for now
+    async def get_episodes(self) -> List[Dict[str, Any]]:
+        if self.mock_mode:
+            return get_mock_episodes()
+        episodes = await self.core_client.get_episodes()
+        if episodes:
+            return episodes
         return get_mock_episodes()
         
-    async def get_session(self) -> dict:
+    async def get_session(self) -> Dict[str, Any]:
+        if self.mock_mode:
+            return get_mock_session()
+        sess = await self.core_client.get_session()
+        if sess:
+            return sess
         return get_mock_session()

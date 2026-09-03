@@ -1,42 +1,56 @@
 import json
 import asyncio
+import logging
 from aiohttp import web
 from tutor_ui.services.assistance import AssistanceService
 from tutor_ui.services.recommendation import RecommendationService
 from tutor_ui.services.notification import NotificationManager
+
+logger = logging.getLogger(__name__)
+
 
 async def get_context(request: web.Request) -> web.Response:
     svc: AssistanceService = request.app["assistance_svc"]
     data = await svc.get_current_context()
     return web.json_response({"status": "success", "data": data})
 
+
 async def get_friction(request: web.Request) -> web.Response:
     svc: AssistanceService = request.app["assistance_svc"]
     data = await svc.get_friction()
     return web.json_response({"status": "success", "data": data})
+
 
 async def get_episodes(request: web.Request) -> web.Response:
     svc: AssistanceService = request.app["assistance_svc"]
     data = await svc.get_episodes()
     return web.json_response({"status": "success", "data": data})
 
+
 async def get_session(request: web.Request) -> web.Response:
     svc: AssistanceService = request.app["assistance_svc"]
     data = await svc.get_session()
     return web.json_response({"status": "success", "data": data})
+
 
 async def get_knowledge_graph(request: web.Request) -> web.Response:
     svc: RecommendationService = request.app["recommendation_svc"]
     data = await svc.get_knowledge_graph()
     return web.json_response({"status": "success", "data": data})
 
+
 async def get_recommendations(request: web.Request) -> web.Response:
     svc: RecommendationService = request.app["recommendation_svc"]
     data = await svc.get_recommendations()
     return web.json_response({"status": "success", "data": data})
 
+
 async def stream_events(request: web.Request) -> web.StreamResponse:
-    """SSE endpoint for real-time notifications to the browser."""
+    """
+    SSE endpoint for real-time notifications to the browser.
+    Includes a 1-second keepalive heartbeat to immediately detect client disconnects
+    and prevent browser HTTP/1.1 socket exhaustion.
+    """
     response = web.StreamResponse(
         status=200,
         reason='OK',
@@ -53,27 +67,25 @@ async def stream_events(request: web.Request) -> web.StreamResponse:
     
     try:
         while True:
-            # Wait for the next event in the queue
-            msg = await queue.get()
-            
-            if msg.get("type") == "_shutdown":
+            try:
+                msg = await asyncio.wait_for(queue.get(), timeout=1.0)
+                if msg.get("type") == "_shutdown":
+                    queue.task_done()
+                    break
+                data_str = json.dumps(msg)
+                event_payload = f"data: {data_str}\n\n"
+                await response.write(event_payload.encode('utf-8'))
                 queue.task_done()
-                break
-                
-            # Format as Server-Sent Events standard
-            data_str = json.dumps(msg)
-            event_payload = f"data: {data_str}\n\n"
-            
-            await response.write(event_payload.encode('utf-8'))
-            queue.task_done()
-    except (ConnectionResetError, asyncio.CancelledError):
+            except asyncio.TimeoutError:
+                # 1s Keepalive heartbeat — detects closed connections immediately
+                await response.write(b": keepalive\n\n")
+    except (ConnectionResetError, ConnectionError, asyncio.CancelledError, Exception):
         pass
-    except Exception as e:
-        request.app.logger.error(f"SSE error: {e}")
     finally:
         nm.unregister_client(queue)
         
     return response
+
 
 def setup_api_routes(app: web.Application) -> None:
     app.router.add_get('/api/context', get_context)

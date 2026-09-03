@@ -41,7 +41,7 @@ async def generate_adaptive_roadmap(
         f"}}"
     )
 
-    result = await registry.complete(prompt=prompt, task_type="reason", max_tokens=700)
+    result = await registry.complete(prompt=prompt, task_type="classify", max_tokens=400)
     raw = result.content.strip()
 
     roadmap_data = None

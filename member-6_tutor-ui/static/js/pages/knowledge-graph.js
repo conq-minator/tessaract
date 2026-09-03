@@ -2,44 +2,66 @@
  * Knowledge Graph D3 Visualization Logic
  */
 
+let simulation = null;
+let zoomBehavior = null;
+let svg = null;
+let g = null;
+
 document.addEventListener('DOMContentLoaded', async () => {
+    const loader = document.getElementById('kg-loader');
     try {
         const kgData = await window.API.getKnowledgeGraph();
         
-        // Hide loader
-        document.getElementById('kg-loader').classList.add('hidden');
+        if (loader) {
+            loader.classList.add('hidden');
+        }
         
         if (!kgData || !kgData.nodes || !kgData.links) {
-            throw new Error("Invalid KG Data");
+            throw new Error("Invalid Knowledge Graph data format");
         }
         
         renderGraph(kgData);
     } catch (e) {
-        console.error("Failed to load KG:", e);
+        console.error("Failed to load Knowledge Graph:", e);
+        if (loader) {
+            loader.innerHTML = '<p class="text-muted">Failed to load Knowledge Graph. Please refresh.</p>';
+        }
         if (window.Notifications) {
             window.Notifications.error("Visualization Error", "Failed to render the knowledge graph.");
         }
     }
 });
 
-let simulation, zoomBehavior, svg, g;
-
 function renderGraph(data) {
     const container = document.getElementById('d3-container');
-    const width = container.clientWidth;
-    const height = container.clientHeight;
+    if (!container) return;
     
+    // Clean up any existing SVG
+    container.innerHTML = '';
+    if (simulation) {
+        simulation.stop();
+        simulation = null;
+    }
+
+    const width = Math.max(container.clientWidth || 900, 600);
+    const height = Math.max(container.clientHeight || 600, 500);
+    
+    if (typeof d3 === 'undefined') {
+        container.innerHTML = '<p class="text-muted" style="padding: 20px;">D3 visualization library is initializing...</p>';
+        return;
+    }
+
     // Setup SVG
     svg = d3.select("#d3-container").append("svg")
-        .attr("width", width)
-        .attr("height", height)
+        .attr("width", "100%")
+        .attr("height", "100%")
         .attr("viewBox", [0, 0, width, height]);
         
     g = svg.append("g");
     
     // Zoom Support
     zoomBehavior = d3.zoom()
-        .scaleExtent([0.1, 4])
+        .scaleExtent([0.2, 4])
         .on("zoom", (event) => {
             g.attr("transform", event.transform);
         });
@@ -48,43 +70,58 @@ function renderGraph(data) {
     
     // Color Scale based on status
     const color = (status) => {
-        if (status === 'mastered' || status === 'strong') return 'var(--status-success)';
-        if (status === 'good' || status === 'developing') return 'var(--status-warning)';
-        return 'var(--status-danger)'; // weak
+        if (status === 'mastered' || status === 'strong') return 'var(--status-success, #10b981)';
+        if (status === 'good' || status === 'developing') return 'var(--status-warning, #f59e0b)';
+        return 'var(--status-danger, #ef4444)'; // weak
     };
     
+    // Copy nodes and links to prevent mutating original data
+    const nodes = data.nodes.map(d => ({
+        ...d,
+        confidence: typeof d.confidence === 'number' ? d.confidence : 0.5
+    }));
+    const links = data.links.map(d => ({ ...d }));
+
     // Simulation
-    simulation = d3.forceSimulation(data.nodes)
-        .force("link", d3.forceLink(data.links).id(d => d.id).distance(100))
-        .force("charge", d3.forceManyBody().strength(-400))
+    simulation = d3.forceSimulation(nodes)
+        .force("link", d3.forceLink(links).id(d => d.id).distance(110))
+        .force("charge", d3.forceManyBody().strength(-350))
         .force("center", d3.forceCenter(width / 2, height / 2))
-        .force("collide", d3.forceCollide().radius(d => 30 + d.confidence * 20));
+        .force("collide", d3.forceCollide().radius(d => 32 + d.confidence * 15));
         
-    // Links
+    // Links (Edges)
     const link = g.append("g")
-        .attr("class", "link")
+        .attr("class", "links")
         .selectAll("line")
-        .data(data.links)
+        .data(links)
         .join("line")
-        .attr("stroke-width", d => Math.sqrt(d.value));
+        .attr("stroke", "var(--border-secondary, #334155)")
+        .attr("stroke-width", 2)
+        .attr("stroke-opacity", 0.6);
         
     // Nodes
     const node = g.append("g")
-        .attr("class", "node")
+        .attr("class", "nodes")
         .selectAll("g")
-        .data(data.nodes)
+        .data(nodes)
         .join("g")
+        .style("cursor", "pointer")
         .call(drag(simulation));
         
     node.append("circle")
-        .attr("r", d => 15 + d.confidence * 15)
+        .attr("r", d => 16 + d.confidence * 14)
         .attr("fill", d => color(d.status))
+        .attr("stroke", "#0f172a")
+        .attr("stroke-width", 2)
         .on("click", (event, d) => showNodeDetails(d));
         
     node.append("text")
-        .attr("x", 20)
+        .attr("x", 22)
         .attr("y", "0.31em")
-        .text(d => d.id);
+        .attr("fill", "var(--text-primary, #f8fafc)")
+        .attr("font-size", "12px")
+        .attr("font-family", "Inter, sans-serif")
+        .text(d => d.label || d.id);
         
     simulation.on("tick", () => {
         link
@@ -98,48 +135,55 @@ function renderGraph(data) {
     });
     
     // Setup Controls
-    document.getElementById('btn-zoom-in').addEventListener('click', () => {
-        svg.transition().duration(300).call(zoomBehavior.scaleBy, 1.3);
-    });
-    document.getElementById('btn-zoom-out').addEventListener('click', () => {
-        svg.transition().duration(300).call(zoomBehavior.scaleBy, 0.7);
-    });
-    document.getElementById('btn-recenter').addEventListener('click', () => {
-        svg.transition().duration(500).call(zoomBehavior.transform, d3.zoomIdentity);
-    });
+    const btnZoomIn = document.getElementById('btn-zoom-in');
+    const btnZoomOut = document.getElementById('btn-zoom-out');
+    const btnRecenter = document.getElementById('btn-recenter');
+
+    if (btnZoomIn) {
+        btnZoomIn.onclick = () => svg.transition().duration(300).call(zoomBehavior.scaleBy, 1.3);
+    }
+    if (btnZoomOut) {
+        btnZoomOut.onclick = () => svg.transition().duration(300).call(zoomBehavior.scaleBy, 0.7);
+    }
+    if (btnRecenter) {
+        btnRecenter.onclick = () => svg.transition().duration(500).call(zoomBehavior.transform, d3.zoomIdentity);
+    }
 }
 
 function showNodeDetails(d) {
     const panel = document.getElementById('node-panel');
+    if (!panel) return;
+    
     const badge = document.getElementById('node-status-badge');
     const fill = document.getElementById('node-confidence-fill');
     
-    document.getElementById('node-title').textContent = d.id;
+    document.getElementById('node-title').textContent = d.label || d.id;
     
-    badge.textContent = d.status.toUpperCase();
+    const status = d.status || 'developing';
+    badge.textContent = status.toUpperCase();
     badge.className = 'badge';
     
     let trackColor = 'var(--status-danger)';
-    if (d.status === 'mastered' || d.status === 'strong') {
+    if (status === 'mastered' || status === 'strong') {
         badge.classList.add('badge-success');
         trackColor = 'var(--status-success)';
-    }
-    else if (d.status === 'good' || d.status === 'developing') {
+    } else if (status === 'good' || status === 'developing') {
         badge.classList.add('badge-warning');
         trackColor = 'var(--status-warning)';
+    } else {
+        badge.classList.add('badge-danger');
     }
-    else badge.classList.add('badge-danger');
     
-    fill.style.width = `${d.confidence * 100}%`;
+    fill.style.width = `${Math.round((d.confidence || 0.5) * 100)}%`;
     fill.style.background = trackColor;
     
     panel.classList.remove('hidden');
 }
 
 // Drag behavior
-function drag(simulation) {
+function drag(sim) {
     function dragstarted(event) {
-        if (!event.active) simulation.alphaTarget(0.3).restart();
+        if (!event.active) sim.alphaTarget(0.3).restart();
         event.subject.fx = event.subject.x;
         event.subject.fy = event.subject.y;
     }
@@ -148,7 +192,7 @@ function drag(simulation) {
         event.subject.fy = event.y;
     }
     function dragended(event) {
-        if (!event.active) simulation.alphaTarget(0);
+        if (!event.active) sim.alphaTarget(0);
         event.subject.fx = null;
         event.subject.fy = null;
     }

@@ -5,7 +5,7 @@
 document.addEventListener('DOMContentLoaded', async () => {
     try {
         // Fetch data concurrently
-        const [context, session, friction, episodes] = await Promise.all([
+        const [context, sessionData, friction, episodes] = await Promise.all([
             window.API.getContext(),
             window.API.getSession(),
             window.API.getFriction(),
@@ -14,30 +14,46 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Render Context
         if (context) {
-            document.getElementById('ui-subject').textContent = context.subject || 'Unknown';
-            document.getElementById('ui-topic').textContent = context.topic || 'No topic';
-            document.getElementById('ui-app').textContent = context.application || 'System';
+            const activeTools = Array.isArray(context.active_tools) && context.active_tools.length > 0 
+                ? context.active_tools.join(', ') 
+                : (context.application || 'System');
+            document.getElementById('ui-subject').textContent = context.topic || context.subject || 'General';
+            document.getElementById('ui-topic').textContent = context.intent ? `Intent: ${context.intent}` : (context.topic || 'No active topic');
+            document.getElementById('ui-app').textContent = activeTools;
         }
 
         // Render Session
-        if (session) {
-            document.getElementById('ui-session-time').textContent = session.duration || '0m';
-            document.getElementById('ui-session-events').textContent = session.event_count || '0';
+        if (sessionData) {
+            const activeSession = sessionData.active_session || sessionData;
+            const eventsCount = activeSession.events_count !== undefined 
+                ? activeSession.events_count 
+                : (activeSession.event_count || 0);
+            
+            let durationText = 'Just started';
+            if (activeSession.start_time) {
+                const startTime = new Date(activeSession.start_time);
+                const now = new Date();
+                const mins = Math.max(1, Math.round((now - startTime) / 60000));
+                durationText = mins < 60 ? `${mins}m` : `${Math.floor(mins / 60)}h ${mins % 60}m`;
+            }
+            document.getElementById('ui-session-time').textContent = durationText;
+            document.getElementById('ui-session-events').textContent = eventsCount;
         }
 
         // Render Friction
         if (friction) {
-            const score = friction.score || 0;
+            const score = typeof friction.score === 'number' ? friction.score : 0;
             const fill = document.getElementById('ui-friction-fill');
             const badge = document.getElementById('ui-friction-badge');
             
             document.getElementById('ui-friction-score').textContent = score.toFixed(2);
             fill.style.width = `${Math.min(100, score * 100)}%`;
             
-            badge.textContent = friction.level || 'LOW';
+            const level = (friction.level || 'LOW').toUpperCase();
+            badge.textContent = level;
             badge.className = 'badge'; // reset
-            if (score > 0.7) badge.classList.add('badge-danger');
-            else if (score > 0.4) badge.classList.add('badge-warning');
+            if (score > 0.7 || level === 'HIGH') badge.classList.add('badge-danger');
+            else if (score > 0.3 || level === 'MEDIUM') badge.classList.add('badge-warning');
             else badge.classList.add('badge-success');
         }
 
@@ -47,25 +63,31 @@ document.addEventListener('DOMContentLoaded', async () => {
             list.innerHTML = '';
             
             if (episodes.length === 0) {
-                list.innerHTML = '<div class="text-muted">No recent episodes</div>';
+                list.innerHTML = '<div class="text-muted">No recent episodes recorded yet.</div>';
                 return;
             }
 
             episodes.slice(0, 5).forEach(ep => {
+                const fScore = typeof ep.friction_score === 'number' 
+                    ? ep.friction_score 
+                    : (typeof ep.friction === 'number' ? ep.friction : 0);
+                const status = ep.outcome || ep.status || 'ongoing';
+                const topic = ep.topic || 'General Activity';
+                
                 let badgeClass = 'badge-primary';
-                if (ep.status === 'mastered') badgeClass = 'badge-success';
-                else if (ep.status === 'struggling') badgeClass = 'badge-warning';
+                if (status === 'mastered' || status === 'resolved') badgeClass = 'badge-success';
+                else if (status === 'struggling' || fScore > 0.5) badgeClass = 'badge-warning';
 
                 const html = `
                     <div class="episode-item">
                         <div class="episode-main">
-                            <h4>${ep.topic}</h4>
+                            <h4>${topic}</h4>
                             <div class="episode-meta">
-                                Duration: ${ep.duration_min}m &bull; Friction: ${ep.friction.toFixed(2)}
+                                Events: ${ep.events_count || ep.events || 1} &bull; Friction: ${fScore.toFixed(2)}
                             </div>
                         </div>
                         <div class="episode-status">
-                            <span class="badge ${badgeClass}">${ep.status}</span>
+                            <span class="badge ${badgeClass}">${status}</span>
                         </div>
                     </div>
                 `;
