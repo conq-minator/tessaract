@@ -40,10 +40,14 @@ out/
 *.xpi
 web-ext-artifacts/
 
-# ---- SQLite Databases (user data) ----
+# ---- SQLite Databases & Runtime Data ----
 *.db
+*.db-shm
+*.db-wal
 *.sqlite
 *.sqlite3
+member-4_core-engine/data/*
+!member-4_core-engine/data/.gitkeep
 
 # ---- Ollama / AI Models (large files) ----
 models/
