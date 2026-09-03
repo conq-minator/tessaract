@@ -97,11 +97,34 @@ async def handle_explain_error(request: web.Request) -> web.Response:
     return web.json_response(res)
 
 
+async def handle_chat(request: web.Request) -> web.Response:
+    """POST /api/v1/tutor/chat"""
+    from src.tutor.explanations import chat_with_tutor
+    data = await request.json()
+    message = data.get("message", "")
+    model_name = data.get("model", None)
+    image_base64 = data.get("image", None)
+    history = data.get("history", [])
+
+    if not message and not image_base64:
+        return web.json_response({"error": "missing_parameter", "message": "'message' or 'image' is required"}, status=400)
+
+    res = await chat_with_tutor(
+        message=message,
+        model_name=model_name,
+        image_base64=image_base64,
+        history=history,
+    )
+    return web.json_response(res)
+
+
 def setup_tutor_routes(app: web.Application):
     app.router.add_post("/api/v1/tutor/hint", handle_hint)
     app.router.add_post("/api/v1/tutor/explain", handle_explain)
     app.router.add_post("/api/v1/tutor/explain-error", handle_explain_error)
     app.router.add_post("/api/v1/tutor/ask", handle_ask)
+    app.router.add_post("/api/v1/tutor/chat", handle_chat)
     app.router.add_post("/api/v1/tutor/practice", handle_practice)
     app.router.add_post("/api/v1/tutor/roadmap", handle_roadmap)
+
 

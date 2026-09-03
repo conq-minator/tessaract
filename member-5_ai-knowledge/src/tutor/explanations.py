@@ -1,6 +1,6 @@
 """Concept explanation engine linking new topics to learner's existing mastered concepts."""
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from src.models.registry import registry
 from src.knowledge.graph import knowledge_graph
 
@@ -251,4 +251,76 @@ async def explain_runtime_error(
         "model_used": model_used,
         "latency_ms": latency_ms,
     }
+
+
+async def chat_with_tutor(
+    message: str,
+    model_name: Optional[str] = None,
+    image_base64: Optional[str] = None,
+    history: Optional[List[Dict[str, str]]] = None,
+) -> Dict[str, Any]:
+    """Handle conversational multi-turn chat with the Tesseract AI Tutor."""
+    if model_name:
+        registry.set_active_model(model_name)
+
+    # Build conversational prompt
+    conversation_lines = []
+    if history:
+        for turn in history[-6:]:
+            role = turn.get("role", "user").capitalize()
+            txt = turn.get("content", "")
+            if txt:
+                conversation_lines.append(f"{role}: {txt}")
+
+    conversation_context = "\n".join(conversation_lines)
+    if conversation_context:
+        prompt = (
+            "You are Tesseract AI Tutor, an expert, concise, and helpful programming assistant.\n"
+            "Recent conversation history:\n"
+            f"{conversation_context}\n\n"
+            f"User: {message}\n"
+            "Assistant:"
+        )
+    else:
+        prompt = (
+            "You are Tesseract AI Tutor, an expert, concise, and helpful programming assistant.\n"
+            f"User: {message}\n\n"
+            "Instructions:\n"
+            "- Answer clearly and concisely with direct explanations.\n"
+            "- When providing code, format in clean markdown code blocks with the language tag.\n"
+            "- If an image was attached, analyze the screenshot/diagram thoroughly.\n"
+            "- Finish your thought completely and close all code blocks with ```."
+        )
+
+    images = [image_base64] if image_base64 else None
+
+    import asyncio
+    try:
+        result = await asyncio.wait_for(
+            registry.complete(
+                prompt=prompt,
+                task_type="reason",
+                max_tokens=600,
+                temperature=0.3,
+                images=images
+            ),
+            timeout=45.0
+        )
+        content = result.content
+        if content.count("```") % 2 != 0:
+            content += "\n```"
+        model_used = result.model_name
+        latency_ms = result.latency_ms
+    except Exception as exc:
+        model_used = model_name or registry.active_model_name
+        latency_ms = 0.0
+        content = f"Tesseract Tutor response: {message}\n\n(AI inference timed out or model was busy. Please try again.)"
+
+    return {
+        "reply": content,
+        "model_used": model_used,
+        "latency_ms": latency_ms,
+        "has_image": bool(image_base64)
+    }
+
 

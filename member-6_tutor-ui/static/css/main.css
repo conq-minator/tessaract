@@ -145,6 +145,36 @@ a:hover {
   position: sticky;
   top: 0;
   z-index: 100;
+  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+body.sidebar-collapsed .sidebar {
+  width: 68px;
+}
+
+body.sidebar-collapsed .sidebar .nav-text,
+body.sidebar-collapsed .sidebar .brand-text span {
+  display: none;
+}
+
+body.sidebar-collapsed .sidebar .sidebar-header {
+  justify-content: center;
+  padding: 20px 8px;
+}
+
+body.sidebar-collapsed .sidebar .nav-link {
+  justify-content: center;
+  padding: 12px;
+}
+
+body.sidebar-collapsed .sidebar .brand-text svg {
+  margin-right: 0 !important;
+}
+
+body.sidebar-collapsed .sidebar .sidebar-footer {
+  justify-content: center;
+  padding: 16px 8px;
 }
 
 #global-loader {

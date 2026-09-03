@@ -2,8 +2,13 @@ import aiohttp_jinja2
 from aiohttp import web
 
 async def index(request: web.Request) -> web.Response:
-    """Redirect root to overview."""
-    raise web.HTTPFound('/overview')
+    """Redirect root to chat."""
+    raise web.HTTPFound('/chat')
+
+@aiohttp_jinja2.template('pages/chat.html')
+async def chat(request: web.Request) -> dict[str, str]:
+    """Ollama-style Chatbot UI page."""
+    return {"title": "Chat - Tesseract"}
 
 @aiohttp_jinja2.template('pages/overview.html')
 async def overview(request: web.Request) -> dict[str, str]:
@@ -38,6 +43,7 @@ async def data_management(request: web.Request) -> dict[str, str]:
 def setup_dashboard_routes(app: web.Application) -> None:
     """Configure dashboard page routes."""
     app.router.add_get('/', index)
+    app.router.add_get('/chat', chat)
     app.router.add_get('/overview', overview)
     app.router.add_get('/knowledge-graph', knowledge_graph)
     app.router.add_get('/learning', learning)

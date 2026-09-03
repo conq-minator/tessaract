@@ -125,6 +125,27 @@ async def select_model(request: web.Request) -> web.Response:
     return web.json_response({"status": "error", "message": "Failed to reach AI service"}, status=502)
 
 
+async def send_chat(request: web.Request) -> web.Response:
+    import aiohttp
+    try:
+        req_data = await request.json()
+    except Exception:
+        req_data = {}
+    url = "http://127.0.0.1:9701/api/v1/tutor/chat"
+    headers = {
+        "Authorization": "Bearer rQUSMHvr5MVgVdCH-b8seB7UbRYeykyJYjBzaZeN2Pk",
+        "Content-Type": "application/json"
+    }
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=req_data, headers=headers, timeout=aiohttp.ClientTimeout(total=50.0)) as resp:
+                data = await resp.json()
+                return web.json_response(data, status=resp.status)
+    except Exception as e:
+        logger.error("Failed to proxy chat message: %s", e)
+        return web.json_response({"error": "chat_proxy_failed", "reply": f"Unable to reach AI Tutor: {e}"}, status=500)
+
+
 def setup_api_routes(app: web.Application) -> None:
     app.router.add_get('/api/context', get_context)
     app.router.add_get('/api/friction', get_friction)
@@ -135,3 +156,5 @@ def setup_api_routes(app: web.Application) -> None:
     app.router.add_get('/api/stream', stream_events)
     app.router.add_get('/api/models', get_models)
     app.router.add_post('/api/models/select', select_model)
+    app.router.add_post('/api/chat', send_chat)
+
