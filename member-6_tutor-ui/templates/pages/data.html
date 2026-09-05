@@ -46,19 +46,33 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
 async function confirmDelete() {
     const confirmed = await window.Modal.confirm({
         title: 'Delete All Data?',
-        message: 'Are you absolutely sure you want to delete all Tesseract data? This will reset your Knowledge Graph, History, and Settings. <b>This cannot be undone.</b>',
+        message: 'Are you absolutely sure you want to delete all Tesseract data? This will reset your Knowledge Graph, History, and Sessions. <b>This cannot be undone.</b>',
         confirmText: 'Delete Forever',
         cancelText: 'Keep Data',
-        type: 'danger' // using our component styles
+        type: 'danger'
     });
     
     if (confirmed) {
-        window.Notifications.success('Data Deleted', 'All local data has been wiped.');
+        try {
+            const res = await window.API.deleteAllData();
+            window.API.invalidateCache();
+            if (window.Notifications) {
+                window.Notifications.success('Data Deleted', 'All local knowledge graphs, events, and sessions have been permanently wiped.');
+            }
+            setTimeout(() => {
+                window.location.reload();
+            }, 1200);
+        } catch (err) {
+            console.error("Failed to delete all data:", err);
+            if (window.Notifications) {
+                window.Notifications.error('Delete Failed', 'Could not wipe data. Please check backend services.');
+            }
+        }
     }
 }
 </script>
 {% endblock %}
+

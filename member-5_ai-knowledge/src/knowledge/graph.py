@@ -26,7 +26,11 @@ class KnowledgeGraph:
     def _load_from_store(self):
         """Load persistent skills and prerequisite edges from SQLite into NetworkX."""
         skills = self.store.get_all_skills()
+        if not skills:
+            self._seed_default_taxonomies()
+            skills = self.store.get_all_skills()
         for skill in skills:
+
             # Apply temporal decay on reload
             decayed_conf = apply_temporal_decay(skill.confidence, skill.last_updated)
             skill.confidence = decayed_conf
@@ -243,6 +247,12 @@ class KnowledgeGraph:
             weak_count=weak,
         )
 
+    def clear_all(self):
+        """Wipe the in-memory graph and persistent store."""
+        self.graph.clear()
+        self.store.clear_all()
+
 
 # Global knowledge graph singleton
 knowledge_graph = KnowledgeGraph()
+

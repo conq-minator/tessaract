@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tesseract Sensor</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="popup-container">
+        <!-- Header -->
+        <div class="popup-header">
+            <div class="brand">
+                <span class="brand-icon">🌐</span>
+                <div>
+                    <h1 class="brand-title">TESSERACT</h1>
+                    <span class="brand-sub">Browser Observation Sensor</span>
+                </div>
+            </div>
+            <div class="status-badge" id="conn-badge">
+                <span class="dot" id="conn-dot"></span>
+                <span id="conn-text">Connecting</span>
+            </div>
+        </div>
+
+        <!-- Master Toggle -->
+        <div class="toggle-card">
+            <div class="toggle-info">
+                <span class="toggle-label">Active Observation</span>
+                <span class="toggle-sub" id="tracking-status-text">Streaming events to Core Engine</span>
+            </div>
+            <label class="switch">
+                <input type="checkbox" id="toggle-tracking" checked>
+                <span class="slider round"></span>
+            </label>
+        </div>
+
+        <!-- Telemetry Metrics -->
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <span class="metric-val" id="metric-sent">0</span>
+                <span class="metric-lbl">Events Emitted</span>
+            </div>
+            <div class="metric-card">
+                <span class="metric-val" id="metric-buffered">0</span>
+                <span class="metric-lbl">Buffered Offline</span>
+            </div>
+        </div>
+
+        <!-- Target Endpoint Info -->
+        <div class="endpoint-box">
+            <div class="endpoint-row">
+                <span class="endpoint-lbl">Target:</span>
+                <span class="endpoint-val">ws://localhost:9700/events</span>
+            </div>
+            <button class="btn-reconnect" id="btn-reconnect">Reconnect</button>
+        </div>
+
+        <!-- Recent Events Log -->
+        <div class="recent-section">
+            <div class="recent-header">
+                <span>Recent Observations</span>
+            </div>
+            <div class="events-list" id="events-list">
+                <div class="empty-events">Listening for browser events...</div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="popup-footer">
+            <a href="http://localhost:9702/browser-activity" target="_blank" class="dashboard-link">
+                Open Tesseract Dashboard ↗
+            </a>
+        </div>
+    </div>
+
+    <script src="../browser-polyfill.js"></script>
+    <script src="popup.js"></script>
+</body>
+</html>

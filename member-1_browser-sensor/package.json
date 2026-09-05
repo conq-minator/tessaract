@@ -1,0 +1,24 @@
+{
+  "name": "tesseract-browser-sensor",
+  "version": "1.0.0",
+  "description": "Tesseract Cross-Browser Observation Sensor (Firefox + Brave/Chromium)",
+  "scripts": {
+    "start:firefox": "web-ext run --source-dir=src/ --firefox=firefox",
+    "start:chrome": "web-ext run --source-dir=src/ --target=chromium",
+    "build": "web-ext build --source-dir=src/ --artifacts-dir=dist/ --overwrite-dest",
+    "lint": "web-ext lint --source-dir=src/"
+  },
+  "devDependencies": {
+    "web-ext": "^8.2.0"
+  },
+  "keywords": [
+    "tesseract",
+    "browser-sensor",
+    "webextension",
+    "firefox",
+    "brave",
+    "chrome"
+  ],
+  "author": "Tesseract AI",
+  "license": "MIT"
+}

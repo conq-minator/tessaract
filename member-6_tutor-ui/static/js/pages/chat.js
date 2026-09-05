@@ -72,21 +72,58 @@
         }
     };
 
+    function compressImageForVision(file, callback) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            const img = new Image();
+            img.onload = function () {
+                const maxDim = 1024;
+                let width = img.width;
+                let height = img.height;
+
+                if (width > maxDim || height > maxDim) {
+                    if (width > height) {
+                        height = Math.round((height * maxDim) / width);
+                        width = maxDim;
+                    } else {
+                        width = Math.round((width * maxDim) / height);
+                        height = maxDim;
+                    }
+                }
+
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+
+                const compressedBase64 = canvas.toDataURL('image/jpeg', 0.85);
+                callback(compressedBase64);
+            };
+            img.onerror = function () {
+                // Fallback to raw base64 if canvas drawing fails
+                callback(e.target.result);
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
     window.handleImageSelect = function (e) {
         const file = e.target.files[0];
         if (!file) return;
 
-        const reader = new FileReader();
-        reader.onload = function (evt) {
+        filenameLabel.textContent = `Optimizing ${file.name}...`;
+        imageStrip.style.display = 'flex';
+
+        compressImageForVision(file, function (optimizedBase64) {
             currentAttachedImage = {
                 name: file.name,
-                base64: evt.target.result
+                base64: optimizedBase64
             };
-            thumbImg.src = evt.target.result;
+            thumbImg.src = optimizedBase64;
             filenameLabel.textContent = file.name;
-            imageStrip.style.display = 'flex';
-        };
-        reader.readAsDataURL(file);
+        });
     };
 
     window.removeAttachedImage = function () {
@@ -141,10 +178,9 @@
         // Render Typing Indicator
         isGenerating = true;
         btnSend.disabled = true;
-        const typingEl = renderTypingIndicator();
-        scrollToBottom();
-
         const modelUsed = modelSelect ? modelSelect.value : 'smollm2:1.7b';
+        const typingEl = renderTypingIndicator(imageToSend ? `Analyzing image with ${modelUsed}... (local vision processing takes ~30-45s)` : null);
+        scrollToBottom();
 
         try {
             const resp = await fetch('/api/chat', {
@@ -161,7 +197,11 @@
             const data = await resp.json();
             typingEl.remove();
 
-            const replyText = data.reply || data.explanation || "No response received.";
+            if (!resp.ok) {
+                throw new Error(data.message || data.error || `HTTP ${resp.status}`);
+            }
+
+            const replyText = data.reply || data.explanation || (data.error ? `⚠️ Error: ${data.message || data.error}` : "No response received.");
             const assistantMsg = {
                 role: 'assistant',
                 content: replyText,
@@ -226,17 +266,18 @@
         bindCopyButtons(row);
     }
 
-    function renderTypingIndicator() {
+    function renderTypingIndicator(customStatusText = null) {
         const row = document.createElement('div');
         row.className = 'msg-row assistant typing-indicator-row';
         row.innerHTML = `
             <div class="msg-avatar">🤖</div>
-            <div class="msg-bubble" style="padding: 6px 14px;">
+            <div class="msg-bubble" style="padding: 8px 16px; display: flex; align-items: center; gap: 10px;">
                 <div class="typing-indicator">
                     <span class="typing-dot"></span>
                     <span class="typing-dot"></span>
                     <span class="typing-dot"></span>
                 </div>
+                ${customStatusText ? `<span style="font-size: 0.85rem; color: var(--text-secondary);">${escapeHtml(customStatusText)}</span>` : ''}
             </div>
         `;
         chatMessages.appendChild(row);

@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "Tesseract Browser Sensor",
+  "version": "1.0.0",
+  "description": "Local observation sensor for Firefox & Brave/Chromium streaming browsing telemetry to Tesseract Core Engine.",
+  "permissions": [
+    "tabs",
+    "history",
+    "bookmarks",
+    "webNavigation",
+    "idle",
+    "storage",
+    "alarms"
+  ],
+  "host_permissions": [
+    "*://*/*"
+  ],
+  "background": {
+    "service_worker": "background/main.js",
+    "scripts": ["browser-polyfill.js", "background/main.js"]
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "Tesseract Browser Sensor"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.youtube.com/*"],
+      "js": ["browser-polyfill.js", "content/youtube-content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "sensor@tesseract.local",
+      "strict_min_version": "109.0"
+    }
+  }
+}

@@ -43,7 +43,11 @@ class IntentClassifier:
             title = str(payload.get("title", "")).lower()
 
             # 2. Learning signals
-            if "youtube.com" in url or "youtu.be" in url or "watch" in event_type:
+            if "youtube.com" in url or "youtu.be" in url or "watch" in event_type or "youtube" in event_type:
+                extracted_topic = payload.get("extracted_topic")
+                is_study = payload.get("is_study_related")
+                if is_study or extracted_topic:
+                    return "learning", 0.95, f"Watching educational video on {extracted_topic or title}"
                 if any(
                     k in title or k in query
                     for k in [
@@ -58,6 +62,7 @@ class IntentClassifier:
                 ):
                     return "learning", 0.90, "Watching educational video / tutorial"
                 return "learning", 0.70, "Consuming media / video"
+
 
             if any(
                 k in url or k in query or k in title

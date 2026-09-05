@@ -34,7 +34,10 @@ def create_app(mock_mode: bool = False) -> web.Application:
     if mock_mode:
         registry.set_mock_mode(True)
 
-    app = web.Application(middlewares=[auth_and_error_middleware])
+    app = web.Application(
+        middlewares=[auth_and_error_middleware],
+        client_max_size=32 * 1024 * 1024,
+    )
 
     # Core health & index routes
     app.router.add_get("/", handle_health)

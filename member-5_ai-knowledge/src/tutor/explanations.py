@@ -293,6 +293,7 @@ async def chat_with_tutor(
         )
 
     images = [image_base64] if image_base64 else None
+    infer_timeout = 150.0 if (images or "gemma4" in (model_name or "")) else 60.0
 
     import asyncio
     try:
@@ -304,7 +305,7 @@ async def chat_with_tutor(
                 temperature=0.3,
                 images=images
             ),
-            timeout=45.0
+            timeout=infer_timeout
         )
         content = result.content
         if content.count("```") % 2 != 0:
@@ -312,9 +313,10 @@ async def chat_with_tutor(
         model_used = result.model_name
         latency_ms = result.latency_ms
     except Exception as exc:
+        logger.error("Chat completion error: %s", exc, exc_info=True)
         model_used = model_name or registry.active_model_name
         latency_ms = 0.0
-        content = f"Tesseract Tutor response: {message}\n\n(AI inference timed out or model was busy. Please try again.)"
+        content = f"⚠️ Image/Chat inference encountered an issue: {exc}\n\nPlease try again."
 
     return {
         "reply": content,
