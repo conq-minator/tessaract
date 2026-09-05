@@ -107,6 +107,7 @@ class CoreEngineApp:
     async def process_event(self, event: TesseractEvent) -> None:
         """
         Main pipeline processing for a normalized incoming event:
+        0. Video/Media Privacy Gate: Topic extraction & study-only filtering
         1. Persist raw event to SQLite
         2. Update session
         3. Classify intent
@@ -115,7 +116,44 @@ class CoreEngineApp:
         6. Correlate with learning episode
         7. Broadcast alerts if thresholds or context changes occur
         """
-        # 1. Persist
+        # 0. Video & Media Privacy Gate
+        if event.source == "browser" and (
+            "youtube" in event.event_type.lower()
+            or "youtube.com" in str(event.payload.get("url", "")).lower()
+            or "youtu.be" in str(event.payload.get("url", "")).lower()
+        ):
+            title = event.payload.get("title") or event.payload.get("video_title", "")
+            channel = event.payload.get("channel", "")
+            description = event.payload.get("description", "")
+
+            # Query AI Layer for topic extraction & study relevance
+            analysis = await self.ai_client.classify_video(
+                title=title, channel=channel, description=description
+            )
+            is_study = analysis.get("is_study_related", False)
+            extracted_topic = analysis.get("topic", title)
+            domain = analysis.get("domain", "general")
+
+            if not is_study:
+                logger.info(
+                    "Non-study video event discarded: '%s' (Extracted Topic: %s)",
+                    title,
+                    extracted_topic,
+                )
+                return  # Privacy gate: Discard event, do not store or process
+
+            # Enrich event payload with extracted study topic
+            event.payload["extracted_topic"] = extracted_topic
+            event.payload["domain"] = domain
+            event.payload["is_study_related"] = True
+            logger.info(
+                "Observed study video: '%s' -> Topic: '%s' (%s)",
+                title,
+                extracted_topic,
+                domain,
+            )
+
+        # 1. Persist (only allowed/study events reach here)
         self.event_store.insert_event(event)
 
         # 2. Session update
@@ -134,6 +172,7 @@ class CoreEngineApp:
         event_file = event.payload.get("file_path") or ""
         cmd_str = event.payload.get("command") or ""
         snippet = event.payload.get("code_snippet") or ""
+
 
         # Extract file path from command line if not present
         if not event_file and cmd_str:

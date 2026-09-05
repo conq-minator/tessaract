@@ -6,9 +6,14 @@ import math
 from contextlib import contextmanager
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
-import sqlite_vec
+
+try:
+    import sqlite_vec
+except ImportError:
+    sqlite_vec = None
 
 from src.config import settings
+
 
 DIMENSION = 384  # Default all-minilm vector dimension
 

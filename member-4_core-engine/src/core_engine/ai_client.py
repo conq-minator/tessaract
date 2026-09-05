@@ -123,3 +123,59 @@ class AIClient:
             logger.debug("Knowledge graph update to AI layer failed: %s", e)
             return False
 
+    async def classify_video(
+        self,
+        title: str,
+        channel: str = "",
+        description: str = "",
+    ) -> dict[str, Any]:
+        """Request video topic extraction and study relevance analysis from AI Layer."""
+        if self.mock_mode:
+            lower = f"{title} {channel}".lower()
+            if any(k in lower for k in ["python", "c++", "algorithm", "tutorial", "pointer", "lecture", "math", "course", "code"]):
+                return {
+                    "topic": "Programming & Computer Science",
+                    "is_study_related": True,
+                    "domain": "computer_science",
+                    "confidence": 0.95,
+                    "rationale": "Mock AI classified as educational",
+                }
+            return {
+                "topic": title or "Entertainment Media",
+                "is_study_related": False,
+                "domain": "entertainment",
+                "confidence": 0.90,
+                "rationale": "Mock AI classified as non-study",
+            }
+
+        url = f"{self.base_url}/inference/classify_video"
+        payload = {
+            "title": title,
+            "channel": channel,
+            "description": description,
+        }
+        try:
+            session = await self._get_session()
+            async with session.post(url, json=payload, headers=self._get_headers()) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    if isinstance(data, dict):
+                        return data
+        except Exception as e:
+            logger.debug("AI video classification request failed: %s; using heuristic", e)
+
+        # Fallback heuristic
+        combined = f"{title} {channel} {description}".lower()
+        is_study = any(
+            k in combined
+            for k in ["tutorial", "course", "lecture", "learn", "how to", "python", "algorithm", "code", "c++", "rust"]
+        )
+        return {
+            "topic": title or "General Media",
+            "is_study_related": is_study,
+            "domain": "computer_science" if is_study else "general",
+            "confidence": 0.75,
+            "rationale": "Deterministic heuristic fallback",
+        }
+
+

@@ -1,0 +1,90 @@
+{
+  "timestamp": "2026-09-05T13:59:02.358866+00:00",
+  "model_tested": "mock-slm",
+  "total_tasks": 10,
+  "passed_tasks": 4,
+  "accuracy_percent": 40.0,
+  "average_latency_ms": 0.07,
+  "task_results": [
+    {
+      "task_id": "task-01-c-pointer-errors",
+      "task_name": "Repeated C Pointer Errors Interpretation",
+      "category": "reasoning",
+      "passed": false,
+      "latency_ms": 0.04,
+      "output_preview": "Concept explanation for: A student had 4 segmentation faults in m... Think of this like a prioritized registry where ite"
+    },
+    {
+      "task_id": "task-02-python-learning-detection",
+      "task_name": "Python Beginner Learning Detection",
+      "category": "classification",
+      "passed": true,
+      "latency_ms": 0.03,
+      "output_preview": "learning_syntax"
+    },
+    {
+      "task_id": "task-03-youtube-learning-sequence",
+      "task_name": "YouTube Learning Sequence Correlation",
+      "category": "reasoning",
+      "passed": false,
+      "latency_ms": 0.01,
+      "output_preview": "Check if your pointer is pointing to valid memory before dereferencing it. Look closely at address allocation."
+    },
+    {
+      "task_id": "task-04-vscode-debugging-struggle",
+      "task_name": "VS Code Debugging Struggle Detection",
+      "category": "classification",
+      "passed": true,
+      "latency_ms": 0.01,
+      "output_preview": "high_friction"
+    },
+    {
+      "task_id": "task-05-math-question",
+      "task_name": "Mathematical Question Interpretation",
+      "category": "reasoning",
+      "passed": false,
+      "latency_ms": 0.01,
+      "output_preview": "[Mock AI response for reason]: Successfully processed reasoning task."
+    },
+    {
+      "task_id": "task-06-diagram-interpretation",
+      "task_name": "Technical Diagram Interpretation",
+      "category": "reasoning",
+      "passed": true,
+      "latency_ms": 0.01,
+      "output_preview": "[Mock AI response for reason]: Successfully processed reasoning task."
+    },
+    {
+      "task_id": "task-07-intent-classification",
+      "task_name": "User Intent Classification",
+      "category": "classification",
+      "passed": true,
+      "latency_ms": 0.01,
+      "output_preview": "learning"
+    },
+    {
+      "task_id": "task-08-knowledge-gap-detection",
+      "task_name": "Knowledge Gap Detection",
+      "category": "reasoning",
+      "passed": false,
+      "latency_ms": 0.02,
+      "output_preview": "[Mock AI response for reason]: Successfully processed reasoning task."
+    },
+    {
+      "task_id": "task-09-hint-generation",
+      "task_name": "Level 1 Non-Spoiling Hint Generation",
+      "category": "reasoning",
+      "passed": false,
+      "latency_ms": 0.01,
+      "output_preview": "[Mock AI response for reason]: Successfully processed reasoning task."
+    },
+    {
+      "task_id": "task-10-practice-question-generation",
+      "task_name": "Targeted Practice Question Generation",
+      "category": "reasoning",
+      "passed": false,
+      "latency_ms": 0.55,
+      "output_preview": "[Mock AI response for reason]: Successfully processed reasoning task."
+    }
+  ]
+}

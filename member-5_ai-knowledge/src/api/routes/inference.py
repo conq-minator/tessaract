@@ -78,8 +78,30 @@ async def handle_vision(request: web.Request) -> web.Response:
     return web.json_response(result.model_dump())
 
 
+async def handle_classify_video(request: web.Request) -> web.Response:
+    """POST /api/v1/inference/classify_video — Extract topic and determine study relevance."""
+    from src.tutor.video_analyzer import analyze_video_topic
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+
+    title = data.get("title", "")
+    channel = data.get("channel", "")
+    description = data.get("description", "")
+
+    result = await analyze_video_topic(
+        title=title,
+        channel=channel,
+        description=description,
+    )
+    return web.json_response(result)
+
+
 def setup_inference_routes(app: web.Application):
     app.router.add_post("/api/v1/inference/complete", handle_complete)
     app.router.add_post("/api/v1/inference/classify", handle_classify)
+    app.router.add_post("/api/v1/inference/classify_video", handle_classify_video)
     app.router.add_post("/api/v1/inference/embed", handle_embed)
     app.router.add_post("/api/v1/inference/vision", handle_vision)
+
