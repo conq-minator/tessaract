@@ -48,6 +48,9 @@ class RestApiHandler:
         app.router.add_get("/api/v1/friction/current", self.handle_get_current_friction)
         app.router.add_get("/api/v1/context/current", self.handle_get_current_context)
         app.router.add_get("/api/v1/analytics/summary", self.handle_get_analytics_summary)
+        app.router.add_delete("/api/v1/data/all", self.handle_delete_all_data)
+        app.router.add_get("/api/v1/browser/activity", self.handle_get_browser_activity)
+
 
     async def handle_health(self, request: web.Request) -> web.Response:
         return web.json_response(
@@ -136,3 +139,22 @@ class RestApiHandler:
     async def handle_get_analytics_summary(self, request: web.Request) -> web.Response:
         summary = self.event_store.get_analytics_summary()
         return web.json_response(summary)
+
+    async def handle_delete_all_data(self, request: web.Request) -> web.Response:
+        """DELETE /api/v1/data/all — Wipe all stored events, episodes, sessions."""
+        try:
+            self.event_store.clear_all_data()
+            return web.json_response({"status": "success", "message": "All core engine data wiped"})
+        except Exception as e:
+            logger.error("Error clearing all data: %s", e)
+            return web.json_response({"status": "error", "message": str(e)}, status=500)
+
+    async def handle_get_browser_activity(self, request: web.Request) -> web.Response:
+        """GET /api/v1/browser/activity — Summarize browser sensor telemetry."""
+        try:
+            summary = self.event_store.get_browser_activity_summary()
+            return web.json_response({"status": "success", "data": summary})
+        except Exception as e:
+            logger.error("Error fetching browser activity: %s", e)
+            return web.json_response({"status": "error", "message": str(e)}, status=500)
+

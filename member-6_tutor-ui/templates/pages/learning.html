@@ -1,45 +1,103 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="learning-grid">
-    <!-- Active Roadmap -->
-    <div class="glass-card roadmap-card animate-fade-in" style="animation-delay: 0.1s">
-        <div class="card-header">
-            <h3 class="card-title">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="accent-icon"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
-                Current Roadmap
-            </h3>
-        </div>
-        <div class="roadmap-header">
-            <h2 id="rm-subject">--</h2>
-            <div class="rm-meta">
-                Level: <span id="rm-level" class="badge badge-primary">--</span>
-                &nbsp;&bull;&nbsp; 
-                ETA: <span id="rm-eta">--</span>
-            </div>
-        </div>
-        
-        <div class="roadmap-timeline" id="rm-timeline">
-            <div class="loading-spinner">Loading timeline...</div>
-        </div>
+<div class="learning-dashboard animate-fade-in">
+    <!-- Active Topics Selector Bar -->
+    <div class="roadmap-topics-bar" id="roadmap-topics-bar">
+        <!-- Dynamically rendered by learning.js -->
     </div>
 
-    <!-- Recommendations -->
-    <div class="glass-card rec-card animate-fade-in" style="animation-delay: 0.2s">
-        <div class="card-header">
-            <h3 class="card-title">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="accent-icon"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-                Recommended Resources
-            </h3>
-            <button class="btn btn-secondary btn-sm" onclick="window.Notifications.info('Refreshing...', 'Fetching new recommendations')">Refresh</button>
+    <!-- Main Grid -->
+    <div class="learning-grid">
+        <!-- Active Roadmap Card -->
+        <div class="glass-card roadmap-card" id="roadmap-main-card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="accent-icon"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                    AI Learning Roadmap
+                </h3>
+                <span class="badge" id="rm-status-badge">🟡 In Progress</span>
+            </div>
+
+            <div class="roadmap-header">
+                <div class="rm-title-row">
+                    <span class="rm-icon" id="rm-icon">🚀</span>
+                    <div>
+                        <h2 id="rm-subject">Loading Roadmap...</h2>
+                        <p class="text-muted" id="rm-desc" style="font-size: 0.9rem; margin-top: 2px;">Synthesizing your telemetry and concept boundaries...</p>
+                    </div>
+                </div>
+                <div class="rm-meta">
+                    Level: <span id="rm-level" class="badge badge-primary">--</span>
+                    &nbsp;&bull;&nbsp; 
+                    Next Goal: <span id="rm-next-milestone" style="color: #f1f5f9; font-weight: 500;">--</span>
+                </div>
+            </div>
+            
+            <div class="roadmap-timeline" id="rm-timeline">
+                <div class="loading-spinner">Loading timeline...</div>
+            </div>
         </div>
-        <div class="recommendation-list" id="rec-list">
-            <div class="loading-spinner">Loading recommendations...</div>
+
+        <!-- Recommendations & Video Resources -->
+        <div class="glass-card rec-card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="accent-icon"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                    Curated Video Milestones
+                </h3>
+                <button class="btn btn-secondary btn-sm" onclick="window.refreshLearning(true)">🔄 Refresh</button>
+            </div>
+            <div class="recommendation-list" id="rec-list">
+                <div class="loading-spinner">Loading recommendations...</div>
+            </div>
         </div>
     </div>
 </div>
 
 <style>
+.learning-dashboard {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Topics Selector Bar */
+.roadmap-topics-bar {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+}
+
+.roadmap-topic-tab {
+    background: rgba(18, 20, 30, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.roadmap-topic-tab:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #f8fafc;
+}
+
+.roadmap-topic-tab.active {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(168, 85, 247, 0.15));
+    border-color: rgba(99, 102, 241, 0.5);
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+}
+
 .learning-grid {
     display: grid;
     grid-template-columns: 2fr 1fr;
@@ -51,17 +109,36 @@
 }
 
 .roadmap-header {
-    margin-bottom: 32px;
-    padding-bottom: 16px;
+    margin-bottom: 28px;
+    padding-bottom: 18px;
     border-bottom: 1px solid var(--border-primary);
 }
-.roadmap-header h2 {
-    font-size: 2rem;
-    margin-bottom: 8px;
+
+.rm-title-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 10px;
 }
+
+.rm-icon {
+    font-size: 2.2rem;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 8px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.roadmap-header h2 {
+    font-size: 1.8rem;
+    margin: 0;
+    color: #f8fafc;
+}
+
 .rm-meta {
     color: var(--text-secondary);
-    font-size: 0.875rem;
+    font-size: 0.85rem;
+    line-height: 1.5;
 }
 
 .roadmap-timeline {
@@ -70,13 +147,13 @@
     gap: 0;
     position: relative;
     padding-left: 20px;
-    border-left: 2px dashed var(--border-primary);
+    border-left: 2px dashed rgba(99, 102, 241, 0.3);
     margin-left: 12px;
 }
 
 .milestone {
     position: relative;
-    padding-bottom: 32px;
+    padding-bottom: 28px;
     padding-left: 24px;
 }
 .milestone:last-child {
@@ -85,52 +162,55 @@
 .milestone::before {
     content: '';
     position: absolute;
-    left: -29px; /* adjust for border */
+    left: -29px;
     top: 0;
     width: 16px;
     height: 16px;
     border-radius: 50%;
-    background: var(--bg-secondary);
-    border: 3px solid var(--border-secondary);
+    background: #141724;
+    border: 3px solid rgba(255, 255, 255, 0.2);
     z-index: 2;
     transition: all var(--trans-fast);
 }
 .milestone.active::before {
-    border-color: var(--accent-primary);
-    background: var(--accent-glow);
-    box-shadow: 0 0 10px var(--accent-glow);
+    border-color: #6366f1;
+    background: #6366f1;
+    box-shadow: 0 0 10px #6366f1;
 }
 .milestone.completed::before {
-    border-color: var(--status-success);
-    background: var(--status-success);
+    border-color: #10b981;
+    background: #10b981;
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
 }
 
 .ms-title {
-    font-size: 1.125rem;
+    font-size: 1.05rem;
     font-weight: 600;
     margin: -4px 0 4px 0;
+    color: #f8fafc;
 }
 .ms-meta {
-    font-size: 0.75rem;
+    font-size: 0.775rem;
     color: var(--text-tertiary);
-    margin-bottom: 12px;
+    margin-bottom: 10px;
 }
-.subtopics {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+
+.ms-video-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.825rem;
+    color: #38bdf8;
+    text-decoration: none;
+    background: rgba(56, 189, 248, 0.08);
+    border: 1px solid rgba(56, 189, 248, 0.2);
+    padding: 4px 10px;
+    border-radius: 6px;
+    margin-top: 6px;
 }
-.subtopic {
-    font-size: 0.75rem;
-    padding: 2px 8px;
-    border-radius: 4px;
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border-primary);
-    color: var(--text-secondary);
-}
-.subtopic.completed {
-    border-color: var(--status-success-muted);
-    color: var(--status-success);
+.ms-video-link:hover {
+    background: rgba(56, 189, 248, 0.15);
+    text-decoration: underline;
 }
 
 .recommendation-list {
@@ -139,27 +219,30 @@
     gap: 12px;
 }
 .rec-item {
-    padding: 16px;
+    padding: 14px 16px;
     border-radius: 12px;
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border-primary);
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
     transition: transform var(--trans-fast), border-color var(--trans-fast);
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
+    text-decoration: none;
 }
 .rec-item:hover {
     transform: translateY(-2px);
-    border-color: var(--border-secondary);
+    border-color: rgba(99, 102, 241, 0.4);
+    background: rgba(255, 255, 255, 0.04);
 }
 .rec-title {
     font-weight: 600;
-    font-size: 1rem;
-    color: var(--text-primary);
+    font-size: 0.95rem;
+    color: #f8fafc;
 }
 .rec-meta {
     display: flex;
     justify-content: space-between;
+    align-items: center;
     font-size: 0.75rem;
     color: var(--text-tertiary);
 }
@@ -167,5 +250,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="/static/js/pages/learning.js"></script>
+<script src="/static/js/pages/learning.js?v=6"></script>
 {% endblock %}

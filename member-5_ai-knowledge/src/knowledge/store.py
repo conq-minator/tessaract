@@ -185,3 +185,11 @@ class KnowledgeStore:
                     )
                 )
             return results
+
+    def clear_all(self):
+        """Wipe all skills, prerequisites, and evidence records from the database."""
+        with self._connection() as conn:
+            conn.execute("DELETE FROM prerequisites")
+            conn.execute("DELETE FROM evidence_log")
+            conn.execute("DELETE FROM skills")
+

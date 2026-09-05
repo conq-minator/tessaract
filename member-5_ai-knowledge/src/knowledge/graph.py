@@ -243,6 +243,12 @@ class KnowledgeGraph:
             weak_count=weak,
         )
 
+    def clear_all(self):
+        """Wipe the in-memory graph and persistent store."""
+        self.graph.clear()
+        self.store.clear_all()
+
 
 # Global knowledge graph singleton
 knowledge_graph = KnowledgeGraph()
+
