@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 def create_app(config: TesseractUIConfig, mock_mode: bool = False) -> web.Application:
     """Create and configure the aiohttp application."""
-    app = web.Application()
+    app = web.Application(client_max_size=32 * 1024 * 1024)
     
     # Store global config and mode
     app["config"] = config
