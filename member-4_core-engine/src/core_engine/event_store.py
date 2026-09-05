@@ -351,3 +351,88 @@ class EventStore:
                 "intents": {row["intent"]: row["cnt"] for row in intents_breakdown},
                 "generated_at": utc_now_iso(),
             }
+
+    def clear_all_data(self) -> None:
+        """Completely wipe all events, sessions, episodes, and friction history."""
+        with self._get_connection() as conn:
+            conn.execute("DELETE FROM events")
+            conn.execute("DELETE FROM sessions")
+            conn.execute("DELETE FROM episodes")
+            conn.execute("DELETE FROM friction_history")
+        logger.info("Cleared all data from EventStore at %s", self.db_path)
+
+    def get_browser_activity_summary(self) -> dict[str, Any]:
+        """Aggregate browser sensor telemetry for dashboard and intelligence layers."""
+        with self._get_connection() as conn:
+            rows = conn.execute(
+                "SELECT * FROM events WHERE source = 'browser' ORDER BY timestamp DESC LIMIT 500"
+            ).fetchall()
+
+            searches = []
+            youtube_videos = []
+            domain_counts: dict[str, int] = {}
+            total_watch_seconds = 0
+            event_count = len(rows)
+
+            for r in rows:
+                etype = r["event_type"]
+                try:
+                    payload = json.loads(r["payload_json"])
+                except Exception:
+                    payload = {}
+
+                # Domain aggregation from URLs
+                url = payload.get("url") or payload.get("video_url") or payload.get("from_url") or ""
+                if url:
+                    from urllib.parse import urlparse
+                    try:
+                        parsed = urlparse(url)
+                        domain = parsed.netloc or parsed.path
+                        domain = domain.split(":")[0]
+                        if domain.startswith("www."):
+                            domain = domain[4:]
+                        if domain:
+                            domain_counts[domain] = domain_counts.get(domain, 0) + 1
+                    except Exception:
+                        pass
+
+                if etype == "search_performed":
+                    query = payload.get("query")
+                    engine = payload.get("engine", "Google")
+                    if query and not any(s["query"] == query for s in searches):
+                        searches.append({
+                            "query": query,
+                            "engine": engine,
+                            "timestamp": r["timestamp"]
+                        })
+                elif etype == "youtube_watching":
+                    title = payload.get("video_title") or payload.get("title") or "YouTube Video"
+                    v_url = payload.get("video_url") or payload.get("url") or ""
+                    channel = payload.get("channel") or "YouTube"
+                    watch_time = int(payload.get("watch_time_s") or payload.get("duration_s") or 60)
+                    total_watch_seconds += watch_time
+                    if v_url and not any(y["url"] == v_url for y in youtube_videos):
+                        youtube_videos.append({
+                            "title": title,
+                            "url": v_url,
+                            "channel": channel,
+                            "duration_s": payload.get("duration_s"),
+                            "watch_time_s": watch_time,
+                            "timestamp": r["timestamp"]
+                        })
+
+            top_domains = sorted(
+                [{"domain": k, "count": v} for k, v in domain_counts.items()],
+                key=lambda x: x["count"],
+                reverse=True
+            )[:10]
+
+            return {
+                "total_browser_events": event_count,
+                "top_domains": top_domains,
+                "recent_searches": searches[:15],
+                "youtube_videos": youtube_videos[:15],
+                "total_watch_minutes": round(total_watch_seconds / 60, 1),
+                "generated_at": utc_now_iso(),
+            }
+

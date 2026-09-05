@@ -41,31 +41,31 @@ const API = {
     },
 
     async getContext() {
-        return this.fetchJSON('/api/context', {}, 2000); // 2s cache
+        return this.fetchJSON('/api/context', {}, 1000); // 1s cache
     },
 
     async getFriction() {
-        return this.fetchJSON('/api/friction', {}, 2000); // 2s cache
+        return this.fetchJSON('/api/friction', {}, 1000); // 1s cache
     },
 
     async getEpisodes() {
-        return this.fetchJSON('/api/episodes', {}, 5000); // 5s cache
+        return this.fetchJSON('/api/episodes', {}, 1000); // 1s cache
     },
 
     async getSession() {
-        return this.fetchJSON('/api/session', {}, 5000); // 5s cache
+        return this.fetchJSON('/api/session', {}, 1000); // 1s cache
     },
 
     async getAnalytics() {
-        return this.fetchJSON('/api/analytics', {}, 10000);
+        return this.fetchJSON('/api/analytics', {}, 1000);
     },
 
     async getKnowledgeGraph() {
-        return this.fetchJSON('/api/knowledge-graph', {}, 1000); // 1s cache for near-instant updates
+        return this.fetchJSON('/api/knowledge-graph', {}, 500); // 0.5s cache for instant updates
     },
 
     async getRecommendations() {
-        return this.fetchJSON('/api/recommendations', {}, 30000); // 30s cache
+        return this.fetchJSON('/api/recommendations', {}, 2000); // 2s cache
     },
 
     async getModels() {
@@ -82,9 +82,26 @@ const API = {
         return await resp.json();
     },
 
+    async deleteAllData() {
+        this.invalidateCache();
+        const resp = await fetch('/api/data/all', {
+            method: 'DELETE'
+        });
+        return await resp.json();
+    },
+
+    async getBrowserInterests() {
+        return this.fetchJSON('/api/browser-interests', {}, 1000);
+    },
+
+    async getBrowserActivity() {
+        return this.fetchJSON('/api/browser-activity', {}, 1000);
+    },
+
     invalidateCache() {
         _apiCache.clear();
     }
 };
 
 window.API = API;
+

@@ -44,7 +44,15 @@ class EventServer:
         elif "token" in request.query:
             token = request.query["token"].strip()
 
-        return token == self.config.shared_secret
+        # Allow connections with matching token, or loopback localhost connections (Firefox/Brave)
+        if token and token == self.config.shared_secret:
+            return True
+        remote = str(request.remote or "").lower().strip()
+        if not remote or remote in ("127.0.0.1", "::1", "localhost") or "127.0.0.1" in remote or remote.startswith("127."):
+            return True
+
+        return False
+
 
     async def handle_ws_events(self, request: web.Request) -> web.StreamResponse:
         """Handler for WebSocket /events endpoint."""

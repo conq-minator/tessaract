@@ -40,6 +40,11 @@ async def data_management(request: web.Request) -> dict[str, str]:
     """Data management page."""
     return {"title": "Data - Tesseract"}
 
+@aiohttp_jinja2.template('pages/browser_activity.html')
+async def browser_activity(request: web.Request) -> dict[str, str]:
+    """Browser Activity telemetry page."""
+    return {"title": "Browser Activity - Tesseract"}
+
 def setup_dashboard_routes(app: web.Application) -> None:
     """Configure dashboard page routes."""
     app.router.add_get('/', index)
@@ -47,6 +52,8 @@ def setup_dashboard_routes(app: web.Application) -> None:
     app.router.add_get('/overview', overview)
     app.router.add_get('/knowledge-graph', knowledge_graph)
     app.router.add_get('/learning', learning)
+    app.router.add_get('/browser-activity', browser_activity)
     app.router.add_get('/history', history)
     app.router.add_get('/settings', settings)
     app.router.add_get('/data', data_management)
+
