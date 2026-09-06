@@ -2,6 +2,23 @@
 
 {% block content %}
 <div class="learning-dashboard animate-fade-in">
+    <!-- Top Intelligence & Sensor Status Header -->
+    <div class="learning-header-row">
+        <div>
+            <h2 class="header-main-title">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                <span>Curriculum & Learning Roadmaps</span>
+            </h2>
+            <p class="text-muted" style="margin: 0; font-size: 0.85rem; color: #a1a1aa;">
+                Extracted study interests from your development telemetry. Select a topic to inspect or synthesize a dynamic multi-phase curriculum.
+            </p>
+        </div>
+        <div id="ai-cloud-pill" class="ai-cloud-pill">
+            <span class="status-indicator-dot online"></span>
+            <span id="ai-engine-label">LOCAL ENGINE &bull; OFFLINE</span>
+        </div>
+    </div>
+
     <!-- Active Topics Selector Bar -->
     <div class="roadmap-topics-bar" id="roadmap-topics-bar">
         <!-- Dynamically rendered by learning.js -->
@@ -13,24 +30,29 @@
         <div class="glass-card roadmap-card" id="roadmap-main-card">
             <div class="card-header">
                 <h3 class="card-title">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="accent-icon"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
-                    AI Learning Roadmap
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="accent-icon"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                    <span id="rm-card-title">Curriculum Roadmap</span>
                 </h3>
-                <span class="badge" id="rm-status-badge">🟡 In Progress</span>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span class="mono-badge" id="rm-status-badge">[IN PROGRESS]</span>
+                    <div id="rm-action-btns" style="display: flex; gap: 6px;"></div>
+                </div>
             </div>
 
             <div class="roadmap-header">
                 <div class="rm-title-row">
-                    <span class="rm-icon" id="rm-icon">🚀</span>
+                    <span class="rm-icon-box" id="rm-icon-box">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                    </span>
                     <div>
                         <h2 id="rm-subject">Loading Roadmap...</h2>
-                        <p class="text-muted" id="rm-desc" style="font-size: 0.9rem; margin-top: 2px;">Synthesizing your telemetry and concept boundaries...</p>
+                        <p class="text-muted" id="rm-desc" style="font-size: 0.875rem; margin-top: 2px; color: #a1a1aa;">Synthesizing development telemetry and concept boundaries...</p>
                     </div>
                 </div>
                 <div class="rm-meta">
-                    Level: <span id="rm-level" class="badge badge-primary">--</span>
+                    Level: <span id="rm-level" class="mono-badge mono-badge-subtle">--</span>
                     &nbsp;&bull;&nbsp; 
-                    Next Goal: <span id="rm-next-milestone" style="color: #f1f5f9; font-weight: 500;">--</span>
+                    Next Goal: <span id="rm-next-milestone" style="color: #ffffff; font-weight: 500;">--</span>
                 </div>
             </div>
             
@@ -43,10 +65,13 @@
         <div class="glass-card rec-card">
             <div class="card-header">
                 <h3 class="card-title">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="accent-icon"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-                    Curated Video Milestones
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="accent-icon"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                    Curated Tutorials
                 </h3>
-                <button class="btn btn-secondary btn-sm" onclick="window.refreshLearning(true)">🔄 Refresh</button>
+                <button class="btn btn-secondary btn-sm" onclick="window.refreshLearning(true)">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                    Sync
+                </button>
             </div>
             <div class="recommendation-list" id="rec-list">
                 <div class="loading-spinner">Loading recommendations...</div>
@@ -56,62 +81,143 @@
 </div>
 
 <style>
+/* Pure Monochrome / ChatGPT & Ollama Aesthetics */
 .learning-dashboard {
     display: flex;
     flex-direction: column;
     gap: 20px;
+    color: #f4f4f5;
+}
+
+.learning-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #09090b;
+    border: 1px solid #27272a;
+    border-radius: 10px;
+    padding: 16px 20px;
+}
+
+.header-main-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #ffffff;
+    margin: 0 0 4px 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    letter-spacing: -0.01em;
+}
+
+.ai-cloud-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #18181b;
+    border: 1px solid #27272a;
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #d4d4d8;
+    letter-spacing: 0.04em;
+}
+
+.status-indicator-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
 }
 
 /* Topics Selector Bar */
 .roadmap-topics-bar {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     overflow-x: auto;
-    padding-bottom: 4px;
+    padding-bottom: 2px;
 }
 
 .roadmap-topic-tab {
-    background: rgba(18, 20, 30, 0.6);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 12px;
-    padding: 10px 16px;
+    background: #09090b;
+    border: 1px solid #27272a;
+    border-radius: 8px;
+    padding: 8px 14px;
     display: flex;
     align-items: center;
     gap: 10px;
     cursor: pointer;
-    transition: all 0.2s ease;
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-    font-weight: 600;
+    transition: all 0.15s ease;
+    color: #a1a1aa;
+    font-size: 0.85rem;
+    font-weight: 500;
     white-space: nowrap;
 }
 
 .roadmap-topic-tab:hover {
-    background: rgba(255, 255, 255, 0.05);
-    color: #f8fafc;
+    background: #18181b;
+    border-color: #3f3f46;
+    color: #ffffff;
 }
 
 .roadmap-topic-tab.active {
-    background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(168, 85, 247, 0.15));
-    border-color: rgba(99, 102, 241, 0.5);
+    background: #ffffff;
+    border-color: #ffffff;
+    color: #000000;
+    font-weight: 600;
+}
+
+.roadmap-topic-tab.active .mono-badge {
+    background: #000000;
     color: #ffffff;
-    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+    border-color: #000000;
 }
 
 .learning-grid {
     display: grid;
     grid-template-columns: 2fr 1fr;
-    gap: 24px;
+    gap: 20px;
 }
 
 @media (max-width: 1100px) {
     .learning-grid { grid-template-columns: 1fr; }
+    .learning-header-row { flex-direction: column; align-items: flex-start; gap: 12px; }
+}
+
+.glass-card {
+    background: #09090b;
+    border: 1px solid #27272a;
+    border-radius: 10px;
+    padding: 20px;
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #18181b;
+}
+
+.card-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    letter-spacing: -0.01em;
 }
 
 .roadmap-header {
-    margin-bottom: 28px;
+    margin-bottom: 24px;
     padding-bottom: 18px;
-    border-bottom: 1px solid var(--border-primary);
+    border-bottom: 1px solid #18181b;
 }
 
 .rm-title-row {
@@ -121,40 +227,131 @@
     margin-bottom: 10px;
 }
 
-.rm-icon {
-    font-size: 2.2rem;
-    background: rgba(255, 255, 255, 0.05);
-    padding: 8px;
-    border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+.rm-icon-box {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    background: #18181b;
+    border: 1px solid #27272a;
+    border-radius: 8px;
+    color: #ffffff;
 }
 
 .roadmap-header h2 {
-    font-size: 1.8rem;
+    font-size: 1.4rem;
+    font-weight: 600;
     margin: 0;
-    color: #f8fafc;
+    color: #ffffff;
+    letter-spacing: -0.02em;
 }
 
 .rm-meta {
-    color: var(--text-secondary);
-    font-size: 0.85rem;
+    color: #71717a;
+    font-size: 0.825rem;
     line-height: 1.5;
+    margin-top: 6px;
 }
 
+.mono-badge {
+    display: inline-block;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    padding: 2px 7px;
+    border-radius: 4px;
+    background: #18181b;
+    border: 1px solid #27272a;
+    color: #d4d4d8;
+}
+
+.mono-badge-subtle {
+    background: transparent;
+    border-color: #3f3f46;
+    color: #ffffff;
+}
+
+/* Activation Banner for Unactivated Discovered Interests */
+.interest-activation-card {
+    background: #121214;
+    border: 1px solid #27272a;
+    border-radius: 10px;
+    padding: 36px 28px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+}
+
+.activation-tag {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.75rem;
+    color: #a1a1aa;
+    border: 1px solid #27272a;
+    padding: 3px 10px;
+    border-radius: 4px;
+    background: #09090b;
+}
+
+.activation-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #ffffff;
+    margin: 0;
+    letter-spacing: -0.01em;
+}
+
+.activation-desc {
+    color: #a1a1aa;
+    font-size: 0.875rem;
+    max-width: 540px;
+    line-height: 1.6;
+    margin: 0;
+}
+
+.btn-activate-roadmap {
+    background: #ffffff;
+    color: #000000;
+    border: 1px solid #ffffff;
+    border-radius: 8px;
+    padding: 10px 22px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-activate-roadmap:hover {
+    background: #e4e4e7;
+    border-color: #e4e4e7;
+}
+
+.btn-activate-roadmap:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Timeline Milestones */
 .roadmap-timeline {
     display: flex;
     flex-direction: column;
     gap: 0;
     position: relative;
     padding-left: 20px;
-    border-left: 2px dashed rgba(99, 102, 241, 0.3);
-    margin-left: 12px;
+    border-left: 1px solid #27272a;
+    margin-left: 10px;
 }
 
 .milestone {
     position: relative;
-    padding-bottom: 28px;
-    padding-left: 24px;
+    padding-bottom: 24px;
+    padding-left: 20px;
 }
 .milestone:last-child {
     padding-bottom: 0;
@@ -162,93 +359,128 @@
 .milestone::before {
     content: '';
     position: absolute;
-    left: -29px;
-    top: 0;
-    width: 16px;
-    height: 16px;
+    left: -26px;
+    top: 3px;
+    width: 10px;
+    height: 10px;
     border-radius: 50%;
-    background: #141724;
-    border: 3px solid rgba(255, 255, 255, 0.2);
+    background: #09090b;
+    border: 2px solid #52525b;
     z-index: 2;
-    transition: all var(--trans-fast);
+    transition: all 0.2s ease;
 }
 .milestone.active::before {
-    border-color: #6366f1;
-    background: #6366f1;
-    box-shadow: 0 0 10px #6366f1;
+    border-color: #ffffff;
+    background: #ffffff;
 }
 .milestone.completed::before {
-    border-color: #10b981;
-    background: #10b981;
-    box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
+    border-color: #a1a1aa;
+    background: #a1a1aa;
+}
+
+.ms-phase-tag {
+    display: inline-block;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 2px 7px;
+    border-radius: 4px;
+    background: #18181b;
+    border: 1px solid #27272a;
+    color: #a1a1aa;
+    margin-bottom: 6px;
 }
 
 .ms-title {
-    font-size: 1.05rem;
+    font-size: 1rem;
     font-weight: 600;
-    margin: -4px 0 4px 0;
-    color: #f8fafc;
+    margin: 0 0 4px 0;
+    color: #ffffff;
 }
-.ms-meta {
-    font-size: 0.775rem;
-    color: var(--text-tertiary);
+
+.ms-desc {
+    font-size: 0.85rem;
+    color: #a1a1aa;
+    line-height: 1.5;
     margin-bottom: 10px;
+}
+
+.ms-meta {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.75rem;
+    color: #71717a;
+    margin-bottom: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.ms-actions-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 6px;
 }
 
 .ms-video-link {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-size: 0.825rem;
-    color: #38bdf8;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #ffffff;
     text-decoration: none;
-    background: rgba(56, 189, 248, 0.08);
-    border: 1px solid rgba(56, 189, 248, 0.2);
-    padding: 4px 10px;
+    background: #18181b;
+    border: 1px solid #27272a;
+    padding: 6px 12px;
     border-radius: 6px;
-    margin-top: 6px;
+    transition: all 0.15s ease;
 }
 .ms-video-link:hover {
-    background: rgba(56, 189, 248, 0.15);
-    text-decoration: underline;
+    background: #27272a;
+    border-color: #3f3f46;
 }
 
 .recommendation-list {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
 }
 .rec-item {
-    padding: 14px 16px;
-    border-radius: 12px;
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    transition: transform var(--trans-fast), border-color var(--trans-fast);
+    padding: 12px 14px;
+    border-radius: 8px;
+    background: #121214;
+    border: 1px solid #27272a;
+    transition: all 0.15s ease;
     display: flex;
     flex-direction: column;
     gap: 6px;
     text-decoration: none;
 }
 .rec-item:hover {
-    transform: translateY(-2px);
-    border-color: rgba(99, 102, 241, 0.4);
-    background: rgba(255, 255, 255, 0.04);
+    border-color: #52525b;
+    background: #18181b;
 }
 .rec-title {
-    font-weight: 600;
-    font-size: 0.95rem;
-    color: #f8fafc;
+    font-weight: 500;
+    font-size: 0.875rem;
+    color: #f4f4f5;
+    line-height: 1.4;
 }
 .rec-meta {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 0.75rem;
-    color: var(--text-tertiary);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.725rem;
+    color: #71717a;
 }
 </style>
 {% endblock %}
 
 {% block extra_js %}
-<script src="/static/js/pages/learning.js?v=6"></script>
+<script src="/static/js/pages/learning.js?v=8"></script>
 {% endblock %}

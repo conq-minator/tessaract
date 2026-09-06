@@ -12,13 +12,22 @@ async def handle_hint(request: web.Request) -> web.Response:
     topic = data.get("topic", "")
     level = int(data.get("level", 1))
     context = data.get("context")
+    code = data.get("code") or ""
+    error = data.get("error") or ""
+    file_path = data.get("file_path") or ""
     friction = float(data.get("friction_score", 0.5))
 
     if not topic:
         return web.json_response({"error": "missing_parameter", "message": "'topic' is required"}, status=400)
 
     res = await generate_progressive_assistance(
-        topic=topic, level=level, context=context, friction_score=friction
+        topic=topic,
+        level=level,
+        context=context,
+        friction_score=friction,
+        code=code,
+        error=error,
+        file_path=file_path,
     )
     return web.json_response(res)
 
@@ -72,12 +81,13 @@ async def handle_ask(request: web.Request) -> web.Response:
     error = data.get("error", "")
     code = data.get("code", "")
     file_path = data.get("file_path", "")
+    history = data.get("history", [])
 
     if not question:
         return web.json_response({"error": "missing_parameter", "message": "'question' is required"}, status=400)
 
     res = await answer_user_question(
-        question=question, topic=topic, error=error, code=code, file_path=file_path
+        question=question, topic=topic, error=error, code=code, file_path=file_path, history=history
     )
     return web.json_response(res)
 

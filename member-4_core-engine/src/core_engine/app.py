@@ -211,20 +211,31 @@ class CoreEngineApp:
         friction_score = self.stuck_detector.update_with_event(event, topic=self._current_topic)
         self.event_store.record_friction_score(self._current_topic, friction_score)
 
-        # Check for Friction Alert (Medium or High) with 15s cooldown per topic
+        # Only trigger friction alerts when an actual execution/run with errors occurred
+        is_error_run = False
+        if event.event_type in ("command_executed", "terminal_command", "test_failed", "runtime_error", "execution_failed"):
+            exit_code = event.payload.get("exit_code")
+            if exit_code is not None and exit_code != 0:
+                is_error_run = True
+            elif event.payload.get("error_message") or event.payload.get("stderr"):
+                is_error_run = True
+        elif event.event_type in ("error_detected", "syntax_error", "build_failed", "diagnostic_error"):
+            is_error_run = True
+        elif event.event_type == "code_edited" and event.payload.get("had_error"):
+            is_error_run = True
+
         now_ts = time.time()
         last_alert = self._last_alert_time.get(self._current_topic, 0.0)
-        cooldown_s = 15.0
+        cooldown_s = 2.0
 
-        if (friction_score.score >= self.config.friction_threshold_medium or friction_score.level in ("medium", "high")) and (now_ts - last_alert >= cooldown_s):
+        if is_error_run and (now_ts - last_alert >= cooldown_s):
             self._last_alert_time[self._current_topic] = now_ts
             logger.warning(
-                "Friction threshold reached for topic '%s'! Level: %s, Score: %.2f",
+                "Execution error detected for topic '%s'! Event: %s, Exit Code: %s",
                 self._current_topic,
-                friction_score.level,
-                friction_score.score,
+                event.event_type,
+                event.payload.get("exit_code"),
             )
-            # Generate AI pedagogical hint tailored to exact runtime error and code snippet
             err_msg = event.payload.get("error_message") or event.payload.get("command") or ""
             err_line = event.payload.get("error_line", "")
             err_file = event.payload.get("file_path", "")
@@ -248,21 +259,14 @@ class CoreEngineApp:
                         except Exception:
                             pass
 
-            context_str = f"Language: {self._current_topic}\nFile: {err_file}:{err_line}\nError: {err_msg}"
-            if code_snippet:
-                context_str += f"\nCode Context:\n```\n{code_snippet.strip()}\n```"
-
-            hint_text = await self.ai_client.generate_hint(
-                topic=self._current_topic,
-                context_str=context_str
-            )
+            run_id = f"run_{event.event_id}"
             await self.alert_stream.broadcast(
                 alert_type="stuck_detected",
                 payload={
+                    "run_id": run_id,
                     "friction_score": friction_score.score,
                     "level": friction_score.level,
                     "topic": self._current_topic,
-                    "hint": hint_text,
                     "signals": friction_score.signals,
                     "error_message": err_msg,
                     "error_line": err_line,

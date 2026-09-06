@@ -98,6 +98,24 @@ const API = {
         return this.fetchJSON('/api/browser-activity', {}, 1000);
     },
 
+    async generateRoadmap(interestId, topic, standing) {
+        this.invalidateCache();
+        const resp = await fetch('/api/roadmap/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ interest_id: interestId, topic: topic, standing: standing })
+        });
+        return await resp.json();
+    },
+
+    async deleteRoadmap(interestId) {
+        this.invalidateCache();
+        const resp = await fetch(`/api/roadmap/${encodeURIComponent(interestId)}`, {
+            method: 'DELETE'
+        });
+        return await resp.json();
+    },
+
     invalidateCache() {
         _apiCache.clear();
     }

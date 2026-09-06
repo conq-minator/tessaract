@@ -5,10 +5,27 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 
-# Locate member-5 root directory and load .env
+# Locate member directories and load .env from multiple potential locations
 MEMBER_DIR = Path(__file__).resolve().parent.parent
-ENV_PATH = MEMBER_DIR / ".env"
-load_dotenv(ENV_PATH)
+ROOT_DIR = MEMBER_DIR.parent
+
+# Load from member-5 .env, member-4 .env, or root .env
+for env_candidate in [MEMBER_DIR / ".env", ROOT_DIR / "member-4_core-engine" / ".env", ROOT_DIR / ".env"]:
+    if env_candidate.exists():
+        load_dotenv(env_candidate, override=False)
+
+
+def resolve_gemini_api_key() -> str:
+    """Resolve Gemini API key from environment or any configured .env file."""
+    key = os.getenv("TESSERACT_GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY") or ""
+    if not key:
+        for env_candidate in [MEMBER_DIR / ".env", ROOT_DIR / "member-4_core-engine" / ".env", ROOT_DIR / ".env"]:
+            if env_candidate.exists():
+                load_dotenv(env_candidate, override=True)
+                key = os.getenv("TESSERACT_GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY") or ""
+                if key:
+                    break
+    return key.strip()
 
 
 class Settings(BaseModel):
@@ -38,11 +55,14 @@ class Settings(BaseModel):
         default_factory=lambda: os.getenv("TESSERACT_MODEL_EMBED", "all-minilm:l6-v2")
     )
 
-    # Cloud Fallback
+    # Cloud Fallback & Video Search Grounding
     cloud_enabled: bool = Field(
-        default_factory=lambda: os.getenv("TESSERACT_CLOUD_ENABLED", "false").lower() == "true"
+        default_factory=lambda: (
+            os.getenv("TESSERACT_CLOUD_ENABLED", "false").lower() == "true"
+            or bool(resolve_gemini_api_key())
+        )
     )
-    gemini_api_key: str = Field(default_factory=lambda: os.getenv("TESSERACT_GEMINI_API_KEY", ""))
+    gemini_api_key: str = Field(default_factory=resolve_gemini_api_key)
     openai_api_key: str = Field(default_factory=lambda: os.getenv("TESSERACT_OPENAI_API_KEY", ""))
 
     # Database & Storage Paths

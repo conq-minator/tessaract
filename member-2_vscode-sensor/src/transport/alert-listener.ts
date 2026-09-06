@@ -7,6 +7,8 @@
 import WebSocket from 'ws';
 import * as vscode from 'vscode';
 import * as cp from 'child_process';
+import * as path from 'path';
+import * as fs from 'fs';
 import http from 'http';
 import { Logger } from '../utils/logger';
 
@@ -26,6 +28,8 @@ export class AlertListener {
     private reconnectTimer: NodeJS.Timeout | null = null;
     private lastAlertTime: number = 0;
     private lastContext: ActiveContext | null = null;
+    private dismissedRuns: Set<string> = new Set();
+    private conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }> = [];
 
     constructor(url: string = 'ws://127.0.0.1:9700/alerts', secret: string = '') {
         this.url = url;
@@ -80,20 +84,16 @@ export class AlertListener {
         Logger.info(`Received alert stream message: ${alertType}`);
 
         if (alertType === 'stuck_detected' || alertType === 'friction_alert') {
-            // Rate limit popups to once every 15 seconds
-            const now = Date.now();
-            if (now - this.lastAlertTime < 15000) return;
-            this.lastAlertTime = now;
-
             const topic = (payload.topic as string) || 'your code';
-            const frictionScore = typeof payload.friction_score === 'number' 
-                ? (payload.friction_score as number).toFixed(2) 
-                : 'High';
-            const pregenHint = typeof payload.hint === 'string' ? payload.hint : '';
             const errorMessage = typeof payload.error_message === 'string' ? payload.error_message : '';
             const errorLine = typeof payload.error_line === 'number' ? payload.error_line : undefined;
             const filePath = typeof payload.file_path === 'string' ? payload.file_path : undefined;
             let codeSnippet = typeof payload.code_snippet === 'string' ? payload.code_snippet : '';
+
+            const runId = (payload.run_id as string) || `${topic}_${errorMessage}_${errorLine || ''}`;
+            if (this.dismissedRuns.has(runId)) {
+                return; // Already notified or dismissed for this run, do not spam
+            }
 
             // Extract snippet from active text editor if missing
             if (!codeSnippet && vscode.window.activeTextEditor) {
@@ -116,81 +116,142 @@ export class AlertListener {
                 codeSnippet
             };
 
-            this.showInteractiveHintPrompt(topic, frictionScore, pregenHint, this.lastContext);
+            this.showInteractiveHintPrompt(runId, topic, this.lastContext);
         }
     }
 
     private showInteractiveHintPrompt(
+        runId: string,
         topic: string,
-        frictionScore: string,
-        pregenHint: string = '',
         ctx: ActiveContext | null = null
     ): void {
-        const message = pregenHint 
-            ? `💡 Tesseract AI Hint (${topic}): ${pregenHint}`
-            : `💡 Tesseract Copilot: High friction (${frictionScore}) detected in ${topic}!`;
-        
+        const filePath = ctx?.filePath;
+        const errorLine = ctx?.errorLine;
+        const fileBasename = filePath ? filePath.split(/[\\/]/).pop() : '';
+        const locStr = fileBasename ? ` (${fileBasename}${errorLine ? `:${errorLine}` : ''})` : '';
+
+        // Reset conversation history for new error episode
+        this.conversationHistory = [];
+
+        const message = `Tesseract: Error detected in ${topic}${locStr}. Would you like assistance?`;
+
         vscode.window.showWarningMessage(
             message,
-            '💬 Ask Question',
+            '💡 Hint (L1)',
             '🔍 Explain Error',
-            '💡 Next Hint (L2)',
+            '💬 Ask Question',
             'Dismiss'
         ).then(async (selection) => {
-            if (selection === '💬 Ask Question') {
-                await this.promptUserQuestion(ctx);
+            // Mark this error run as dismissed/handled so it doesn't pop up again while idle
+            this.dismissedRuns.add(runId);
+
+            if (selection === '💡 Hint (L1)') {
+                await this.fetchAndShowHint(topic, 1, ctx);
             } else if (selection === '🔍 Explain Error') {
                 await this.fetchAndExplainError(ctx);
-            } else if (selection === '💡 Next Hint (L2)') {
-                await this.fetchAndShowHint(topic, 2, ctx);
+            } else if (selection === '💬 Ask Question') {
+                await this.promptUserQuestion(ctx);
             }
         });
     }
 
-    private async promptUserQuestion(ctx: ActiveContext | null): Promise<void> {
-        let topic = ctx?.topic || 'general';
-        let errorMsg = ctx?.errorMessage || '';
-        let filePath = ctx?.filePath;
-        let codeSnippet = ctx?.codeSnippet;
+    private async resolveContext(ctx: ActiveContext | null): Promise<{
+        topic: string;
+        errorMsg: string;
+        errorLine?: number;
+        filePath?: string;
+        codeSnippet: string;
+    }> {
+        const activeCtx = ctx || this.lastContext;
+        let topic = activeCtx?.topic || 'general';
+        let errorMsg = activeCtx?.errorMessage || '';
+        let errorLine = activeCtx?.errorLine;
+        let filePath = activeCtx?.filePath;
+        let codeSnippet = activeCtx?.codeSnippet || '';
 
         const activeEditor = vscode.window.activeTextEditor;
+        const wsFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+
+        // 1. Resolve active editor document dynamically for any file
         if (activeEditor) {
-            filePath = filePath || activeEditor.document.uri.fsPath;
+            const activeFsPath = activeEditor.document.uri.fsPath;
+            if (!filePath || filePath.endsWith(path.basename(activeFsPath))) {
+                filePath = activeFsPath;
+            }
             if (topic === 'general' || topic === 'your code') {
                 topic = activeEditor.document.languageId;
             }
         }
 
-        const userPrompt = await vscode.window.showInputBox({
-            title: `💬 Tesseract AI Tutor (${topic})`,
-            prompt: 'Ask anything about your code, the error, or concept:',
-            placeHolder: 'e.g. Why does total += num crash here? or How do I fix line 7?',
-            ignoreFocusOut: true
-        });
+        if (filePath && !path.isAbsolute(filePath) && wsFolder) {
+            filePath = path.resolve(wsFolder, filePath);
+        }
 
-        if (!userPrompt || !userPrompt.trim()) return;
+        // 2. Dynamically extract code snippet from active editor or filesystem
+        if (!codeSnippet) {
+            if (activeEditor) {
+                codeSnippet = activeEditor.document.getText().slice(0, 1500);
+            } else if (filePath && fs.existsSync(filePath)) {
+                try {
+                    codeSnippet = fs.readFileSync(filePath, 'utf8').slice(0, 1500);
+                } catch {}
+            }
+        }
 
-        // If errorMsg is missing or generic, run a quick dry-run to get the real error
-        if (!errorMsg || errorMsg.startsWith('python') || errorMsg.startsWith('node') || errorMsg.includes('Runtime error')) {
-            if (filePath && (filePath.endsWith('.py') || filePath.endsWith('.js'))) {
-                const cmd = filePath.endsWith('.py') ? `python "${filePath}"` : `node "${filePath}"`;
+        // 3. Dry-run file dynamically to capture real runtime/syntax error if errorMsg is generic
+        const isGenericError = !errorMsg ||
+            errorMsg.startsWith('python') ||
+            errorMsg.startsWith('node') ||
+            errorMsg.includes('Runtime error') ||
+            errorMsg.includes("can't open file") ||
+            errorMsg === 'SyntaxError: invalid syntax';
+
+        if (isGenericError && filePath && fs.existsSync(filePath)) {
+            const isPy = filePath.endsWith('.py');
+            const isJs = filePath.endsWith('.js') || filePath.endsWith('.ts');
+            if (isPy || isJs) {
+                const fileDir = path.dirname(filePath);
+                const cmd = isPy ? `python "${filePath}"` : `node "${filePath}"`;
                 try {
                     const output = await new Promise<string>((resolve) => {
-                        cp.exec(cmd, { timeout: 2500 }, (err, stdout, stderr) => {
+                        cp.exec(cmd, { cwd: fileDir || wsFolder, timeout: 2500 }, (err, stdout, stderr) => {
                             resolve((stderr || stdout || err?.message || '').trim());
                         });
                     });
-                    if (output) {
+                    if (output && !output.includes("can't open file") && !output.includes("No such file")) {
                         const lines = output.split('\n').map(l => l.trim()).filter(Boolean);
-                        errorMsg = lines[lines.length - 1];
+                        if (lines.length > 0) {
+                            errorMsg = lines[lines.length - 1];
+                        }
+                        const lineMatch = output.match(/line (\d+)/i);
+                        if (lineMatch) {
+                            errorLine = parseInt(lineMatch[1], 10);
+                        }
                     }
                 } catch {}
             }
         }
 
-        if (!codeSnippet && activeEditor) {
-            codeSnippet = activeEditor.document.getText().slice(0, 1000);
+        // 4. Strip any leaked "can't open file" runner noise from errorMsg
+        if (errorMsg.includes("can't open file") || errorMsg.includes("No such file")) {
+            errorMsg = `Syntax or runtime error in ${topic}`;
         }
+
+        return { topic, errorMsg, errorLine, filePath, codeSnippet };
+    }
+
+    private async promptUserQuestion(ctx: ActiveContext | null): Promise<void> {
+        const resolved = await this.resolveContext(ctx);
+        const { topic, errorMsg, codeSnippet } = resolved;
+
+        const userPrompt = await vscode.window.showInputBox({
+            title: `💬 Tesseract AI Tutor (${topic})`,
+            prompt: 'Ask anything about your code, the error, or concept:',
+            placeHolder: 'e.g. Why does this loop fail? or What concept does this use?',
+            ignoreFocusOut: true
+        });
+
+        if (!userPrompt || !userPrompt.trim()) return;
 
         vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
@@ -203,11 +264,15 @@ export class AlertListener {
                     topic,
                     error: errorMsg || '',
                     code: codeSnippet || '',
-                    file_path: filePath || ''
+                    history: this.conversationHistory
                 });
 
                 const answer = (res.answer as string) || (res.explanation as string) || (res.hint as string) || (res.message as string) || 'No response from tutor model.';
                 
+                // Track conversation turns so follow-ups retain context
+                this.conversationHistory.push({ role: 'user', content: userPrompt.trim() });
+                this.conversationHistory.push({ role: 'assistant', content: answer });
+
                 vscode.window.showInformationMessage(
                     `🤖 Tesseract Tutor:\n\n${answer}`,
                     { modal: true },
@@ -216,9 +281,9 @@ export class AlertListener {
                     'Close'
                 ).then(async (sel) => {
                     if (sel === '💬 Ask Follow-up') {
-                        await this.promptUserQuestion(ctx);
+                        await this.promptUserQuestion(resolved);
                     } else if (sel === '🔍 Explain Error') {
-                        await this.fetchAndExplainError(ctx);
+                        await this.fetchAndExplainError(resolved);
                     }
                 });
             } catch (e: unknown) {
@@ -229,48 +294,9 @@ export class AlertListener {
     }
 
     private async fetchAndExplainError(ctx: ActiveContext | null): Promise<void> {
-        let topic = ctx?.topic || 'general';
-        let errorMsg = ctx?.errorMessage || '';
-        let filePath = ctx?.filePath;
-        let codeSnippet = ctx?.codeSnippet;
-
-        const activeEditor = vscode.window.activeTextEditor;
-        if (activeEditor) {
-            filePath = filePath || activeEditor.document.uri.fsPath;
-            if (topic === 'general' || topic === 'your code') {
-                topic = activeEditor.document.languageId;
-            }
-        }
-
-        // If errorMsg is missing or generic, run a quick dry-run of the file to get the exact traceback!
-        if (!errorMsg || errorMsg.startsWith('python') || errorMsg.startsWith('node') || errorMsg.includes('Runtime error')) {
-            if (filePath && (filePath.endsWith('.py') || filePath.endsWith('.js'))) {
-                const cmd = filePath.endsWith('.py') ? `python "${filePath}"` : `node "${filePath}"`;
-                try {
-                    const output = await new Promise<string>((resolve) => {
-                        cp.exec(cmd, { timeout: 2500 }, (err, stdout, stderr) => {
-                            resolve((stderr || stdout || err?.message || '').trim());
-                        });
-                    });
-                    if (output) {
-                        const lines = output.split('\n').map(l => l.trim()).filter(Boolean);
-                        errorMsg = lines[lines.length - 1]; // e.g. "AssertionError: Expected 1 task, but got 2..."
-                        const lineMatch = output.match(/line (\d+)/i);
-                        if (lineMatch && activeEditor) {
-                            const lineNo = parseInt(lineMatch[1], 10);
-                            const docLines = activeEditor.document.getText().split('\n');
-                            const s = Math.max(0, lineNo - 5);
-                            const e = Math.min(docLines.length, lineNo + 4);
-                            codeSnippet = docLines.slice(s, e).join('\n');
-                        }
-                    }
-                } catch {}
-            }
-        }
-
-        if (!codeSnippet && activeEditor) {
-            codeSnippet = activeEditor.document.getText().slice(0, 1000);
-        }
+        const resolved = await this.resolveContext(ctx);
+        const { topic, errorMsg, codeSnippet } = resolved;
+        const updatedCtx: ActiveContext = { ...resolved, errorMessage: errorMsg };
 
         vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
@@ -281,8 +307,7 @@ export class AlertListener {
                 const res = await this.requestAI('/api/v1/tutor/explain-error', {
                     topic,
                     error: errorMsg || `Runtime error in ${topic}`,
-                    code: codeSnippet || '',
-                    file_path: filePath || ''
+                    code: codeSnippet || ''
                 });
 
                 const explanation = (res.explanation as string) || (res.answer as string) || (res.hint as string) || (res.message as string) || 'No error details found.';
@@ -290,14 +315,14 @@ export class AlertListener {
                 vscode.window.showInformationMessage(
                     explanation,
                     { modal: true },
+                    '💡 Start Hints (L1)',
                     '💬 Ask Question',
-                    '💡 Next Hint (L2)',
                     'Close'
                 ).then(async (sel) => {
-                    if (sel === '💬 Ask Question') {
-                        await this.promptUserQuestion(ctx);
-                    } else if (sel === '💡 Next Hint (L2)') {
-                        await this.fetchAndShowHint(topic, 2, ctx);
+                    if (sel === '💡 Start Hints (L1)') {
+                        await this.fetchAndShowHint(topic, 1, updatedCtx);
+                    } else if (sel === '💬 Ask Question') {
+                        await this.promptUserQuestion(updatedCtx);
                     }
                 });
             } catch (e: unknown) {
@@ -308,27 +333,36 @@ export class AlertListener {
     }
 
     private async fetchAndShowHint(topic: string, level: number = 1, ctx: ActiveContext | null = null): Promise<void> {
-        const activeCtx = ctx || this.lastContext;
+        const resolved = await this.resolveContext(ctx);
+        const detectedTopic = topic || resolved.topic || 'python';
+        const errorMsg = resolved.errorMsg;
+        const errorLine = resolved.errorLine;
+        const filePath = resolved.filePath;
+        const codeSnippet = resolved.codeSnippet;
+        const updatedCtx: ActiveContext = { ...resolved, topic: detectedTopic, errorMessage: errorMsg };
+
         vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
-            title: `Tesseract: Fetching Level ${level} hint for ${topic}...`,
+            title: `Tesseract: Analyzing code & fetching Level ${level} hint...`,
             cancellable: false
         }, async () => {
             try {
-                let contextStr = `Language: ${topic}`;
-                if (activeCtx?.errorMessage) {
-                    contextStr += `\nError: ${activeCtx.errorMessage}`;
+                let contextStr = `Language: ${detectedTopic}`;
+                if (errorMsg) {
+                    contextStr += `\nError: ${errorMsg}`;
                 }
-                if (activeCtx?.errorLine) {
-                    contextStr += `\nLine: ${activeCtx.errorLine}`;
+                if (errorLine) {
+                    contextStr += `\nLine: ${errorLine}`;
                 }
-                if (activeCtx?.codeSnippet) {
-                    contextStr += `\nCode Context:\n${activeCtx.codeSnippet}`;
+                if (codeSnippet) {
+                    contextStr += `\nCode Context:\n${codeSnippet}`;
                 }
 
                 const hintData = await this.requestAI('/api/v1/tutor/hint', {
-                    topic,
+                    topic: detectedTopic,
                     level,
+                    code: codeSnippet,
+                    error: errorMsg,
                     context: contextStr
                 });
 
@@ -340,17 +374,27 @@ export class AlertListener {
                 if (nextBtn) buttons.push(nextBtn);
                 buttons.push('🔍 Explain Error', '💬 Ask Question', 'Close');
 
+                const levelNames: Record<number, string> = {1: 'Nudge', 2: 'Concept', 3: 'Strategy'};
+                const levelLabel = levelNames[level] || 'Hint';
+
                 vscode.window.showInformationMessage(
-                    `💡 Level ${level} Hint (${topic}):\n\n${hintText}`,
-                    { modal: level >= 2 },
+                    `💡 Level ${level} ${levelLabel} (${detectedTopic}):\n\n${hintText}`,
+                    { modal: true },
                     ...buttons
                 ).then(async (nextSel) => {
+                    const updatedCtx: ActiveContext = {
+                        topic: detectedTopic,
+                        errorMessage: errorMsg,
+                        errorLine,
+                        filePath,
+                        codeSnippet
+                    };
                     if (nextSel === nextBtn && nextLevel <= 3) {
-                        await this.fetchAndShowHint(topic, nextLevel, activeCtx);
+                        await this.fetchAndShowHint(detectedTopic, nextLevel, updatedCtx);
                     } else if (nextSel === '🔍 Explain Error') {
-                        await this.fetchAndExplainError(activeCtx);
+                        await this.fetchAndExplainError(updatedCtx);
                     } else if (nextSel === '💬 Ask Question') {
-                        await this.promptUserQuestion(activeCtx);
+                        await this.promptUserQuestion(updatedCtx);
                     }
                 });
             } catch (e: unknown) {

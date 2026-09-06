@@ -223,6 +223,44 @@ async def get_browser_activity(request: web.Request) -> web.Response:
     })
 
 
+async def generate_roadmap(request: web.Request) -> web.Response:
+    """POST /api/roadmap/generate — Proxy to Member 5 comprehensive roadmap generator."""
+    import aiohttp
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+    url = "http://127.0.0.1:9701/api/v1/knowledge/roadmap/generate"
+    auth_headers = {
+        "Authorization": "Bearer rQUSMHvr5MVgVdCH-b8seB7UbRYeykyJYjBzaZeN2Pk",
+        "Content-Type": "application/json"
+    }
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=data, headers=auth_headers, timeout=aiohttp.ClientTimeout(total=45.0)) as resp:
+                res_data = await resp.json()
+                return web.json_response(res_data, status=resp.status)
+    except Exception as e:
+        logger.error("Error generating roadmap: %s", e)
+        return web.json_response({"status": "error", "message": str(e)}, status=500)
+
+
+async def delete_roadmap(request: web.Request) -> web.Response:
+    """DELETE /api/roadmap/{id} — Proxy to Member 5 roadmap deleter."""
+    import aiohttp
+    rm_id = request.match_info.get("id", "")
+    url = f"http://127.0.0.1:9701/api/v1/knowledge/roadmap/{rm_id}"
+    auth_headers = {"Authorization": "Bearer rQUSMHvr5MVgVdCH-b8seB7UbRYeykyJYjBzaZeN2Pk"}
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.delete(url, headers=auth_headers, timeout=aiohttp.ClientTimeout(total=5.0)) as resp:
+                res_data = await resp.json()
+                return web.json_response(res_data, status=resp.status)
+    except Exception as e:
+        logger.error("Error deleting roadmap: %s", e)
+        return web.json_response({"status": "error", "message": str(e)}, status=500)
+
+
 def setup_api_routes(app: web.Application) -> None:
     app.router.add_get('/api/context', get_context)
     app.router.add_get('/api/friction', get_friction)
@@ -237,5 +275,7 @@ def setup_api_routes(app: web.Application) -> None:
     app.router.add_delete('/api/data/all', delete_all_data)
     app.router.add_get('/api/browser-interests', get_browser_interests)
     app.router.add_get('/api/browser-activity', get_browser_activity)
+    app.router.add_post('/api/roadmap/generate', generate_roadmap)
+    app.router.add_delete('/api/roadmap/{id}', delete_roadmap)
 
 

@@ -5,6 +5,7 @@ import json
 from contextlib import contextmanager
 from pathlib import Path
 from typing import List, Optional, Dict, Any
+from datetime import datetime, timezone
 from src.knowledge.models import SkillNode, EvidenceRecord
 from src.config import settings
 
@@ -57,6 +58,15 @@ class KnowledgeStore:
                     timestamp TEXT NOT NULL,
                     metadata_json TEXT,
                     FOREIGN KEY (skill_id) REFERENCES skills (skill_id) ON DELETE CASCADE
+                );
+
+                CREATE TABLE IF NOT EXISTS roadmaps (
+                    interest_id TEXT PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    standing TEXT NOT NULL DEFAULT 'Beginner',
+                    roadmap_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
                 );
 
                 CREATE INDEX IF NOT EXISTS idx_skills_domain ON skills(domain);
@@ -186,10 +196,70 @@ class KnowledgeStore:
                 )
             return results
 
+    def save_roadmap(self, interest_id: str, title: str, standing: str, roadmap: list) -> dict:
+        """Save or update an activated comprehensive learning roadmap."""
+        now = datetime.now(timezone.utc).isoformat()
+        with self._connection() as conn:
+            conn.execute("""
+                INSERT INTO roadmaps (interest_id, title, standing, roadmap_json, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(interest_id) DO UPDATE SET
+                    title=excluded.title,
+                    standing=excluded.standing,
+                    roadmap_json=excluded.roadmap_json,
+                    updated_at=excluded.updated_at
+            """, (interest_id, title, standing, json.dumps(roadmap), now, now))
+        return {
+            "interest_id": interest_id,
+            "title": title,
+            "standing": standing,
+            "roadmap": roadmap,
+            "updated_at": now
+        }
+
+    def get_roadmap(self, interest_id: str) -> Optional[dict]:
+        """Fetch saved comprehensive roadmap for an interest if active."""
+        with self._connection() as conn:
+            row = conn.execute("SELECT * FROM roadmaps WHERE interest_id = ?", (interest_id,)).fetchone()
+            if not row:
+                return None
+            try:
+                rm = json.loads(row["roadmap_json"])
+            except Exception:
+                rm = []
+            return {
+                "interest_id": row["interest_id"],
+                "title": row["title"],
+                "standing": row["standing"],
+                "roadmap": rm,
+                "created_at": row["created_at"],
+                "updated_at": row["updated_at"],
+            }
+
+    def get_all_roadmaps(self) -> dict:
+        """Fetch all activated roadmaps keyed by interest_id."""
+        with self._connection() as conn:
+            rows = conn.execute("SELECT * FROM roadmaps").fetchall()
+            result = {}
+            for r in rows:
+                try:
+                    result[r["interest_id"]] = json.loads(r["roadmap_json"])
+                except Exception:
+                    result[r["interest_id"]] = []
+            return result
+
+    def delete_roadmap(self, interest_id: str) -> bool:
+        """Remove an activated roadmap for an interest."""
+        with self._connection() as conn:
+            cur = conn.execute("DELETE FROM roadmaps WHERE interest_id = ?", (interest_id,))
+            return cur.rowcount > 0
+
     def clear_all(self):
-        """Wipe all skills, prerequisites, and evidence records from the database."""
+        """Wipe all skills, prerequisites, evidence records, and roadmaps from the database."""
         with self._connection() as conn:
             conn.execute("DELETE FROM prerequisites")
             conn.execute("DELETE FROM evidence_log")
             conn.execute("DELETE FROM skills")
+            conn.execute("DELETE FROM roadmaps")
+
 
