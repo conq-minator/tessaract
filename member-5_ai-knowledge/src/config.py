@@ -57,12 +57,12 @@ class Settings(BaseModel):
 
     # Cloud Fallback & Video Search Grounding
     cloud_enabled: bool = Field(
-        default_factory=lambda: (
-            os.getenv("TESSERACT_CLOUD_ENABLED", "false").lower() == "true"
-            or bool(resolve_gemini_api_key())
-        )
+        default_factory=lambda: os.getenv("TESSERACT_CLOUD_ENABLED", "false").lower() == "true"
     )
     gemini_api_key: str = Field(default_factory=resolve_gemini_api_key)
+    gemini_model: str = Field(
+        default_factory=lambda: os.getenv("TESSERACT_GEMINI_MODEL", "gemini-3.6-flash")
+    )
     openai_api_key: str = Field(default_factory=lambda: os.getenv("TESSERACT_OPENAI_API_KEY", ""))
 
     # Database & Storage Paths

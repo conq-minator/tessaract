@@ -131,11 +131,21 @@ AUTHORITATIVE_CHANNELS = [
 
 def get_active_gemini_key() -> str:
     """Resolve active Gemini API key from settings or environment dynamically."""
+    if not settings.cloud_enabled and os.getenv("TESSERACT_CLOUD_ENABLED", "false").lower() != "true":
+        return ""
     key = settings.gemini_api_key or os.getenv("TESSERACT_GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY") or ""
     if not key:
         from src.config import resolve_gemini_api_key
         key = resolve_gemini_api_key()
     return key.strip()
+
+
+def get_gemini_candidate_models() -> list[str]:
+    """Return prioritized list of active Gemini model versions (latest first)."""
+    configured = getattr(settings, "gemini_model", None) or os.getenv("TESSERACT_GEMINI_MODEL", "gemini-3.6-flash")
+    models = [configured, "gemini-3.6-flash", "gemini-3.8-flash"]
+    seen = set()
+    return [m for m in models if m and not (m in seen or seen.add(m))]
 
 
 async def resolve_youtube_video(query: str, default_title: str = "", default_channel: str = "YouTube Creator", default_duration: str = "30 min") -> dict:
@@ -165,7 +175,7 @@ async def resolve_youtube_video(query: str, default_title: str = "", default_cha
                 f"Prefer top recognized educators (e.g. Andrej Karpathy, 3Blue1Brown, freeCodeCamp, MIT OCW, Jon Gjengset, Fireship, Bro Code).\n"
                 f"Return ONLY a JSON object: {{\"title\": \"...\", \"channel\": \"...\", \"video_id\": \"...\", \"duration\": \"...\"}}"
             )
-            for model_name in ["gemini-2.0-flash", "gemini-1.5-flash"]:
+            for model_name in get_gemini_candidate_models():
                 try:
                     async with aiohttp.ClientSession() as session:
                         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={gemini_key}"
@@ -784,12 +794,12 @@ async def query_gemini_curriculum(topic: str, standing: str) -> list[dict]:
         f"Respond ONLY with a JSON array of 6 phase objects. No preamble, no markdown backticks."
     )
 
-    for model_name in ["gemini-2.0-flash", "gemini-1.5-flash"]:
+    for model_name in get_gemini_candidate_models():
         try:
             async with aiohttp.ClientSession() as session:
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={gemini_key}"
                 payload = {"contents": [{"parts": [{"text": prompt}]}]}
-                async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=8.0)) as resp:
+                async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=35.0)) as resp:
                     if resp.status == 200:
                         res_json = await resp.json()
                         text = res_json.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
@@ -798,8 +808,11 @@ async def query_gemini_curriculum(topic: str, standing: str) -> list[dict]:
                             phases = json.loads(json_str)
                             if isinstance(phases, list) and len(phases) >= 4:
                                 return phases
+                    else:
+                        err_body = await resp.text()
+                        logger.warning("Gemini %s responded with status %s: %s", model_name, resp.status, err_body[:200])
         except Exception as e:
-            logger.debug("Gemini curriculum generator exception with %s: %s", model_name, e)
+            logger.warning("Gemini curriculum generator exception with %s: %s", model_name, e)
             continue
     return []
 
@@ -930,9 +943,8 @@ async def generate_comprehensive_roadmap(topic: str, standing: str, interest_id:
             }
         ]
 
-    # Enrich each phase with verified, authoritative YouTube links
-    enriched = []
-    for idx, p in enumerate(phases):
+    # Enrich each phase with verified, authoritative YouTube links concurrently
+    async def _resolve_phase(idx: int, p: dict) -> dict:
         p_title = p.get("title", f"Phase {idx + 1}: {topic}")
         p_desc = p.get("description", "")
         p_lvl = p.get("level", "Intermediate")
@@ -941,15 +953,18 @@ async def generate_comprehensive_roadmap(topic: str, standing: str, interest_id:
         def_title = p.get("default_title", p_title)
         def_channel = p.get("default_channel", "YouTube Educator")
 
-        yt_res = await resolve_youtube_video(p_q, default_title=def_title, default_channel=def_channel, default_duration=p_dur)
-        
+        try:
+            yt_res = await resolve_youtube_video(p_q, default_title=def_title, default_channel=def_channel, default_duration=p_dur)
+        except Exception:
+            yt_res = {"url": "https://www.youtube.com", "video_id": "", "duration": p_dur, "channel": def_channel}
+
         is_completed = False
         if standing == "Advanced" and p_lvl in ["Beginner", "Intermediate"]:
             is_completed = True
         elif standing == "Intermediate" and p_lvl == "Beginner":
             is_completed = True
 
-        enriched.append({
+        return {
             "phase": p.get("phase", idx + 1),
             "title": p_title,
             "description": p_desc,
@@ -959,7 +974,9 @@ async def generate_comprehensive_roadmap(topic: str, standing: str, interest_id:
             "video_id": yt_res.get("video_id", ""),
             "channel": yt_res.get("channel") or def_channel,
             "completed": is_completed
-        })
+        }
+
+    enriched = await asyncio.gather(*[_resolve_phase(idx, p) for idx, p in enumerate(phases)])
 
     # Save to SQLite knowledge store
     knowledge_graph.store.save_roadmap(interest_id, topic, standing, enriched)
@@ -1089,13 +1106,16 @@ async def handle_get_interests(request: web.Request) -> web.Response:
     study_videos = [y for y in youtube_videos if is_study_related(y["title"], y.get("channel", ""))]
 
     gemini_key = get_active_gemini_key()
+    primary_model = get_gemini_candidate_models()[0] if gemini_key else "local-only"
     cloud_status = {
         "enabled": bool(gemini_key),
-        "model": "gemini-2.0-flash" if gemini_key else "local-only",
-        "description": "Cloud-Augmented (Gemini 2.0 Flash)" if gemini_key else "Local Intelligence (Zero Telemetry)"
+        "model": primary_model,
+        "description": f"Cloud-Augmented ({primary_model})" if gemini_key else "Local Intelligence (Zero Telemetry)"
     }
 
-    if not study_searches and not study_videos:
+    active_roadmaps = knowledge_graph.store.get_all_roadmaps()
+
+    if not study_searches and not study_videos and not active_roadmaps:
         return web.json_response({
             "status": "success",
             "total_interests": 0,
@@ -1105,7 +1125,6 @@ async def handle_get_interests(request: web.Request) -> web.Response:
         })
 
     # Cache signature based strictly on study-filtered telemetry and active roadmaps
-    active_roadmaps = knowledge_graph.store.get_all_roadmaps()
     raw_signature = f"v3:{len(study_searches)}:{[s['query'] for s in study_searches]}:{len(study_videos)}:{[y['title'] for y in study_videos]}:{list(active_roadmaps.keys())}"
     sig_hash = hashlib.md5(raw_signature.encode()).hexdigest()
 
@@ -1130,6 +1149,11 @@ async def handle_get_interests(request: web.Request) -> web.Response:
             clusters[slug] = {"title": meta["title"], "slug": slug, "icon": meta["icon"], "searches": [], "videos": []}
         if not any(v["url"] == y["url"] for v in clusters[slug]["videos"]):
             clusters[slug]["videos"].append(y)
+
+    for r_slug, r_phases in active_roadmaps.items():
+        if r_slug not in clusters and r_phases:
+            meta = resolve_topic_info(r_slug)
+            clusters[r_slug] = {"title": meta["title"], "slug": r_slug, "icon": meta["icon"], "searches": [], "videos": []}
 
     final_interests = []
 

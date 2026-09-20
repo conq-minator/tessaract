@@ -15,7 +15,7 @@ import aiohttp
 
 from src.models.registry import registry
 from src.knowledge.graph import knowledge_graph
-from src.config import resolve_gemini_api_key
+from src.config import resolve_gemini_api_key, settings
 
 logger = logging.getLogger("tesseract.tutor.hints")
 
@@ -190,11 +190,15 @@ async def generate_progressive_assistance(
     except Exception as e:
         logger.warning("Active reason model generation failed: %s", e)
 
-    # 2. Secondary: Fallback to Gemini if configured and primary failed
-    if not content:
+    # 2. Secondary: Fallback to Gemini if cloud is enabled and primary failed
+    if not content and (getattr(settings, "cloud_enabled", False) or os.getenv("TESSERACT_CLOUD_ENABLED", "false").lower() == "true"):
         gemini_key = resolve_gemini_api_key()
         if gemini_key:
-            for m_name in ["gemini-2.0-flash", "gemini-1.5-flash"]:
+            configured_m = getattr(settings, "gemini_model", None) or os.getenv("TESSERACT_GEMINI_MODEL", "gemini-3.6-flash")
+            gemini_models = [configured_m, "gemini-3.6-flash", "gemini-3.8-flash", "gemini-2.5-flash", "gemini-2.0-flash"]
+            seen_m = set()
+            candidate_models = [m for m in gemini_models if m and not (m in seen_m or seen_m.add(m))]
+            for m_name in candidate_models:
                 try:
                     t0 = asyncio.get_event_loop().time()
                     async with aiohttp.ClientSession() as session:
